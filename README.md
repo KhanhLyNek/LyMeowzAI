@@ -99,7 +99,8 @@ ra lệnh cho cô ấy bằng các thẻ `[FOLLOW]`, `[STAY]`, `[HOME]`, `[COME]
 | Minecraft | File | Java |
 |---|---|---|
 | 1.21 – 1.21.1 | `lymeowzai-1.1.0+1.21.1.jar` | 21 |
-| 1.21.2 – 1.21.4 | `lymeowzai-1.1.0+1.21.4.jar` | 21 |
+| 1.21.2 – 1.21.3 | `lymeowzai-1.1.0+1.21.3.jar` | 21 |
+| 1.21.4 | `lymeowzai-1.1.0+1.21.4.jar` | 21 |
 | 1.21.5 | `lymeowzai-1.1.0+1.21.5.jar` | 21 |
 | 1.21.6 – 1.21.8 | `lymeowzai-1.1.0+1.21.8.jar` | 21 |
 | 1.21.9 – 1.21.10 | `lymeowzai-1.1.0+1.21.10.jar` | 21 |
@@ -122,6 +123,15 @@ Cần **Java 25** (Gradle tự dùng Java 21 cho các bản 1.21.x nếu máy c�
 ./gradlew :26.3:runClient       # chạy thử
 ```
 
+## Kiểm thử
+
+Mỗi file jar được kiểm tra trên **mọi** phiên bản Minecraft trong dải của nó:
+
+- **Kiểm tra liên kết tĩnh:** mọi lời gọi tới Minecraft và Fabric API trong jar đều được đối chiếu với jar client
+  của từng phiên bản. Cách này bắt được `NoSuchMethodError` trước khi chúng làm crash game.
+- **Server thật:** dựng server Fabric bản phát hành, cho một bot người chơi vào chơi theo kịch bản
+  (chào, Mugyu~, bị bỏ xa 300 block, thoát rồi vào lại, đứng đợi, sang Nether…), và chạy `/lymeowz selftest`.
+
 ## Cấu trúc mã nguồn
 
 Một mã nguồn chung (tên Mojang) cho mọi phiên bản, cộng một lớp `compat` nhỏ cho từng nhóm phiên bản
@@ -137,7 +147,7 @@ src/main/java/…          mã chung
   command/SelfTest         /lymeowz selftest
 compat/<nhóm>/            Compat, LyMeowzBase (server) và ClientCompat (renderer) theo phiên bản
   v1_21_1   1.21 – 1.21.1
-  v1_21_2   1.21.2 – 1.21.4   (render state, hurtServer, TeleportTransition)
+  v1_21_2   1.21.2 – 1.21.4   (render state, hurtServer, TeleportTransition; hai bản build vì sendParticles đổi ở 1.21.4)
   v1_21_5   1.21.5 – 1.21.8   (TicketType mới, RespawnConfig, snapTo)
   v1_21_9   1.21.9 – 1.21.10  (AvatarRenderState, RespawnData, KEEP_DIMENSION_ACTIVE)
   v1_21_11  1.21.11 – 26.3    (Identifier, PermissionSet; 26.x không remap)

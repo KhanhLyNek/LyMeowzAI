@@ -505,11 +505,15 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (!(owner.level() instanceof ServerLevel ol)) return false;
         roamTarget = null;
         searching = false;
-        return teleportNear(ol, owner.blockPosition(), 1, 3);
+        if (teleportNear(ol, owner.blockPosition(), 1, 3)) return true;
+        // Chỗ chủ đứng chật quá (hang hẹp, Nether...) → đứng ngay cạnh chủ.
+        if (owner.onGround() || owner.isInWater()) { doTeleport(ol, owner.blockPosition()); return true; }
+        return false;
     }
 
     /** Tìm chỗ an toàn quanh {@code center} rồi dịch chuyển tới (kể cả khác chiều không gian). */
     public boolean teleportNear(ServerLevel target, BlockPos center, int minR, int maxR) {
+        // 1) Thử ngẫu nhiên vài chỗ gần.
         for (int i = 0; i < 24; i++) {
             int dx = getRandom().nextIntBetweenInclusive(-maxR, maxR);
             int dz = getRandom().nextIntBetweenInclusive(-maxR, maxR);
@@ -519,11 +523,23 @@ public class LyMeowzEntity extends LyMeowzBase {
                 if (isSafeSpot(target, p)) { doTeleport(target, p); return true; }
             }
         }
-        if (isSafeSpot(target, center)) { doTeleport(target, center); return true; }
-        // Cùng lắm thì lên mặt đất ngay trên điểm đó.
-        int y = target.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, center.getX(), center.getZ());
-        BlockPos top = new BlockPos(center.getX(), y, center.getZ());
-        if (isSafeSpot(target, top)) { doTeleport(target, top); return true; }
+        // 2) Quét có hệ thống, từ gần ra xa, cả lên lẫn xuống.
+        int r = maxR + 3;
+        BlockPos best = null;
+        double bestD = Double.MAX_VALUE;
+        for (int dx = -r; dx <= r; dx++) for (int dz = -r; dz <= r; dz++) for (int dy = -6; dy <= 6; dy++) {
+            double d = dx * dx + dz * dz + dy * dy * 2.0;
+            if (d >= bestD) continue;
+            BlockPos p = center.offset(dx, dy, dz);
+            if (isSafeSpot(target, p)) { best = p; bestD = d; }
+        }
+        if (best != null) { doTeleport(target, best); return true; }
+        // 3) Thế giới không có trần (không phải Nether): lên mặt đất ngay trên điểm đó.
+        if (!target.dimensionType().hasCeiling()) {
+            int y = target.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, center.getX(), center.getZ());
+            BlockPos top = new BlockPos(center.getX(), y, center.getZ());
+            if (isSafeSpot(target, top)) { doTeleport(target, top); return true; }
+        }
         return false;
     }
 
