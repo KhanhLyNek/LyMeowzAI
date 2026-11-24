@@ -2,16 +2,14 @@ package com.khanhly.lymeowz.chat;
 
 import com.khanhly.lymeowz.config.LyConfig;
 import com.khanhly.lymeowz.entity.LyMeowzEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
+import com.khanhly.lymeowz.compat.Compat;
+import com.khanhly.lymeowz.world.CompanionStore;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.text.Normalizer;
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,8 +24,6 @@ public class Brain {
     private static final Pattern TAG = Pattern.compile("\\[(FOLLOW|STAY|HOME|COME)]", Pattern.CASE_INSENSITIVE);
 
     private final LyMeowzEntity ly;
-    /** Lịch sử hội thoại ngắn, dạng "user:..." / "assistant:...". */
-    private final Deque<String> history = new ArrayDeque<>();
     private boolean waitingLlm;
 
     public Brain(LyMeowzEntity ly) {
@@ -64,20 +60,20 @@ public class Brain {
     }
 
     /** Người chơi chat gì đó. */
-    public void hear(ServerPlayerEntity player, String raw) {
+    public void hear(ServerPlayer player, String raw) {
         if (!ly.isOwner(player)) return;
         LyConfig cfg = LyConfig.get();
         String n = normalize(raw);
         String name = normalize(cfg.name).trim();
         boolean named = n.contains(" " + name + " ") || has(n, "ly", "meowz", "lymeowz");
-        boolean near = player.getWorld() == ly.getWorld() && player.squaredDistanceTo(ly) < (double) cfg.hearingDistance * cfg.hearingDistance;
+        boolean near = player.level() == ly.level() && player.distanceToSqr(ly) < (double) cfg.hearingDistance * cfg.hearingDistance;
         if (!named && !near) return;
 
         remember("user: " + raw);
         Intent intent = parse(raw);
         switch (intent) {
             case SET_HOME -> {
-                ly.setHome((ServerWorld) player.getWorld(), player.getBlockPos());
+                ly.setHome((ServerLevel) player.level(), player.blockPosition());
                 reply(Lines.HOME_SET);
                 ly.hearts();
             }
@@ -97,10 +93,10 @@ public class Brain {
         }
     }
 
-    private void come(ServerPlayerEntity player) {
+    private void come(ServerPlayer player) {
         ly.setMode(LyMeowzEntity.Mode.FOLLOW);
-        if (player.getWorld() != ly.getWorld() || player.distanceTo(ly) > 24) ly.teleportToOwner(player);
-        else ly.getNavigation().startMovingTo(player, 1.3);
+        if (player.level() != ly.level() || player.distanceTo(ly) > 24) ly.teleportToOwner(player);
+        else ly.getNavigation().moveTo(player, 1.3);
     }
 
     private void reply(String[] lines) {
@@ -109,20 +105,28 @@ public class Brain {
         remember("assistant: " + line.replace("%s", LyConfig.get().name));
     }
 
-    private void remember(String s) {
-        history.addLast(s);
-        int max = Math.max(2, LyConfig.get().llm.maxHistory);
-        while (history.size() > max) history.removeFirst();
+    /** Lịch sử hội thoại ngắn ("user: ..." / "assistant: ...") – lưu cùng dữ liệu của cô ấy. */
+    private List<String> history() {
+        CompanionStore.Data d = ly.data();
+        return d == null ? new ArrayList<>() : d.history;
     }
 
-    private void askLlm(ServerPlayerEntity player) {
+    private void remember(String s) {
+        List<String> h = history();
+        h.add(s);
+        int max = Math.max(2, LyConfig.get().llm.maxHistory);
+        while (h.size() > max) h.remove(0);
+        CompanionStore.markDirty();
+    }
+
+    private void askLlm(ServerPlayer player) {
         if (waitingLlm) return;
         waitingLlm = true;
-        var server = player.getServer();
+        var server = ((ServerLevel) player.level()).getServer();
         String context = "Người chơi tên " + player.getName().getString()
-                + ", đang cách bạn " + (player.getWorld() == ly.getWorld() ? (int) player.distanceTo(ly) + " block" : "rất xa (khác thế giới)")
-                + ". Chế độ hiện tại: " + ly.getMode() + ". Trời đang " + (ly.getWorld().isNight() ? "tối" : "sáng") + ".";
-        LlmClient.chat(history, context).whenComplete((text, err) -> server.execute(() -> {
+                + ", đang cách bạn " + (player.level() == ly.level() ? (int) player.distanceTo(ly) + " block" : "rất xa (khác thế giới)")
+                + ". Chế độ hiện tại: " + ly.getMode() + ". Trời đang " + (Compat.isNight(ly.level()) ? "tối" : "sáng") + ".";
+        LlmClient.chat(List.copyOf(history()), context).whenComplete((text, err) -> server.execute(() -> {
             waitingLlm = false;
             if (ly.isRemoved()) return;
             if (err != null || text == null || text.isBlank()) {
@@ -136,7 +140,7 @@ public class Brain {
                     case "FOLLOW" -> ly.setMode(LyMeowzEntity.Mode.FOLLOW);
                     case "STAY" -> ly.setMode(LyMeowzEntity.Mode.STAY);
                     case "HOME" -> ly.setMode(LyMeowzEntity.Mode.HOME);
-                    case "COME" -> { ServerPlayerEntity o = ly.getOwner(); if (o != null) come(o); }
+                    case "COME" -> { ServerPlayer o = ly.getOwner(); if (o != null) come(o); }
                 }
             }
             clean = TAG.matcher(clean).replaceAll("").trim();
@@ -144,17 +148,5 @@ public class Brain {
             ly.sayRaw(clean);
             remember("assistant: " + clean);
         }));
-    }
-
-    public void writeNbt(NbtCompound nbt) {
-        NbtList list = new NbtList();
-        for (String s : history) list.add(NbtString.of(s));
-        nbt.put("LyHistory", list);
-    }
-
-    public void readNbt(NbtCompound nbt) {
-        history.clear();
-        NbtList list = nbt.getList("LyHistory", NbtElement.STRING_TYPE);
-        for (int i = 0; i < list.size(); i++) history.addLast(list.getString(i));
     }
 }

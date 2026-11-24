@@ -2,54 +2,48 @@ package com.khanhly.lymeowz.entity;
 
 import com.khanhly.lymeowz.chat.Brain;
 import com.khanhly.lymeowz.chat.Lines;
+import com.khanhly.lymeowz.compat.Compat;
+import com.khanhly.lymeowz.compat.LyMeowzBase;
 import com.khanhly.lymeowz.config.LyConfig;
-import com.khanhly.lymeowz.world.ChunkKeeper;
-import com.khanhly.lymeowz.world.CompanionState;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.FoodComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.goal.ActiveTargetGoal;
-import net.minecraft.entity.ai.goal.LongDoorInteractGoal;
-import net.minecraft.entity.ai.goal.LookAroundGoal;
-import net.minecraft.entity.ai.goal.LookAtEntityGoal;
-import net.minecraft.entity.ai.goal.MeleeAttackGoal;
-import net.minecraft.entity.ai.goal.RevengeGoal;
-import net.minecraft.entity.ai.goal.SwimGoal;
-import net.minecraft.entity.ai.pathing.MobNavigation;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.damage.DamageTypes;
-import net.minecraft.entity.mob.CreeperEntity;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.Monster;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.TeleportTarget;
-import net.minecraft.world.World;
+import com.khanhly.lymeowz.world.CompanionStore;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
+import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
@@ -64,25 +58,20 @@ import java.util.UUID;
  *   <li>Người chơi thoát game / đi ngủ / ra lệnh → tự về nhà (mặc định là giường của người chơi).</li>
  *   <li>Không bao giờ chết hẳn: khi kiệt sức cô ấy "ngất" và về nhà nghỉ.</li>
  * </ul>
+ * Mọi dữ liệu lâu dài nằm trong {@link CompanionStore}, không nằm trong NBT.
  */
-public class LyMeowzEntity extends PathAwareEntity {
+public class LyMeowzEntity extends LyMeowzBase {
 
     public enum Mode { FOLLOW, STAY, HOME }
 
-    @Nullable private UUID ownerUuid;
-    private Mode mode = Mode.FOLLOW;
+    /** Dữ liệu lưu trữ – null nếu cô ấy chưa có chủ. */
+    @Nullable private CompanionStore.Data data;
+    private boolean dataBound;
 
-    /** Nhà do người chơi đặt (null = dùng điểm hồi sinh / giường của người chơi). */
-    @Nullable private BlockPos homePos;
-    @Nullable private RegistryKey<World> homeDim;
-    /** Điểm hồi sinh cuối cùng biết được của người chơi (dùng khi họ offline). */
-    @Nullable private BlockPos ownerSpawnPos;
-    @Nullable private RegistryKey<World> ownerSpawnDim;
-
-    // Trạng thái AI tạm thời (không cần lưu)
+    // Trạng thái AI tạm thời
     @Nullable private BlockPos roamTarget;
     private int roamTimer;
-    private Vec3d lastStuckCheck = Vec3d.ZERO;
+    private Vec3 lastStuckCheck = Vec3.ZERO;
     private int stuckCount;
     private boolean searching;
     private boolean travelingHome;
@@ -90,182 +79,214 @@ public class LyMeowzEntity extends PathAwareEntity {
     private boolean sleepHandled;
     private boolean nightSaid;
     private int chatterCooldown = 2400;
-    private int lastSpeakAge = -1000;
+    private int lastSpeakTick = -1000;
 
     public final Brain brain = new Brain(this);
 
-    public LyMeowzEntity(EntityType<? extends PathAwareEntity> type, World world) {
-        super(type, world);
-        this.setPersistent();
+    public LyMeowzEntity(EntityType<? extends PathfinderMob> type, Level level) {
+        super(type, level);
+        this.setPersistenceRequired();
         this.setCanPickUpLoot(false);
-        if (this.getNavigation() instanceof MobNavigation nav) {
-            nav.setCanPathThroughDoors(true);
-            nav.setCanEnterOpenDoors(true);
+        if (this.getNavigation() instanceof GroundPathNavigation nav) {
+            nav.setCanOpenDoors(true);
+            nav.setCanPassDoors(true);
         }
-        this.setCustomName(Text.literal(LyConfig.get().name).formatted(Formatting.LIGHT_PURPLE));
+        this.setCustomName(Component.literal(LyConfig.get().name).withStyle(ChatFormatting.LIGHT_PURPLE));
         this.setCustomNameVisible(true);
-        this.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
-        this.setEquipmentDropChance(EquipmentSlot.MAINHAND, 0f);
+        this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
+        this.setDropChance(EquipmentSlot.MAINHAND, 0f);
     }
 
-    public static DefaultAttributeContainer.Builder createAttributes() {
-        return MobEntity.createMobAttributes()
-                .add(EntityAttributes.GENERIC_MAX_HEALTH, 40.0)
-                .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.32)
-                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 5.0)
-                .add(EntityAttributes.GENERIC_ARMOR, 6.0)
-                .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 64.0)
-                .add(EntityAttributes.GENERIC_STEP_HEIGHT, 1.0);
+    public static AttributeSupplier.Builder createAttributes() {
+        return Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 40.0)
+                .add(Attributes.MOVEMENT_SPEED, 0.32)
+                .add(Attributes.ATTACK_DAMAGE, 5.0)
+                .add(Attributes.ARMOR, 6.0)
+                .add(Attributes.FOLLOW_RANGE, 64.0)
+                .add(Attributes.STEP_HEIGHT, 1.0);
     }
 
     @Override
-    protected void initGoals() {
-        this.goalSelector.add(0, new SwimGoal(this));
-        this.goalSelector.add(1, new MeleeAttackGoal(this, 1.25, true));
-        this.goalSelector.add(2, new LongDoorInteractGoal(this, true));
-        this.goalSelector.add(8, new LookAtEntityGoal(this, PlayerEntity.class, 8.0f));
-        this.goalSelector.add(9, new LookAroundGoal(this));
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new FloatGoal(this));
+        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.25, true));
+        this.goalSelector.addGoal(2, new OpenDoorGoal(this, true));
+        this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0f));
+        this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
-        this.targetSelector.add(1, new RevengeGoal(this, PlayerEntity.class));
-        this.targetSelector.add(2, new ActiveTargetGoal<>(this, HostileEntity.class, 10, true, false,
-                e -> !(e instanceof CreeperEntity) && e.squaredDistanceTo(this) < 14 * 14));
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this, Player.class));
+        addMonsterTargetGoal(2, e -> !(e instanceof Creeper) && e.distanceToSqr(this) < 14 * 14);
     }
 
-    // ------------------------------------------------------------------ owner
+    // ------------------------------------------------------------------ data / owner
 
-    @Nullable public UUID getOwnerUuid() { return ownerUuid; }
-    public Mode getMode() { return mode; }
-
-    public void setOwner(PlayerEntity player) {
-        this.ownerUuid = player.getUuid();
-        rememberOwnerSpawn((ServerPlayerEntity) player);
-        if (getWorld() instanceof ServerWorld sw) {
-            CompanionState.get(sw.getServer()).put(ownerUuid, getUuid(), sw.getRegistryKey(), getBlockPos(), mode == Mode.FOLLOW);
+    @Nullable
+    public CompanionStore.Data data() {
+        if (!dataBound) {
+            dataBound = true;
+            data = CompanionStore.byCompanion(getUUID());
         }
-    }
-
-    public boolean isOwner(PlayerEntity player) {
-        return ownerUuid != null && ownerUuid.equals(player.getUuid());
+        return data;
     }
 
     @Nullable
-    public ServerPlayerEntity getOwner() {
-        if (ownerUuid == null || !(getWorld() instanceof ServerWorld sw)) return null;
-        return sw.getServer().getPlayerManager().getPlayer(ownerUuid);
+    public UUID getOwnerUuid() {
+        CompanionStore.Data d = data();
+        return d == null ? null : UUID.fromString(d.owner);
+    }
+
+    public Mode getMode() {
+        CompanionStore.Data d = data();
+        if (d == null) return Mode.FOLLOW;
+        try { return Mode.valueOf(d.mode); } catch (IllegalArgumentException e) { return Mode.FOLLOW; }
+    }
+
+    private MinecraftServer server() {
+        return ((ServerLevel) level()).getServer();
+    }
+
+    private CompanionStore.Spot here() {
+        return new CompanionStore.Spot(Compat.dimId(level().dimension()), getBlockX(), getBlockY(), getBlockZ());
+    }
+
+    public void setOwner(ServerPlayer player) {
+        data = CompanionStore.assign(player.getUUID(), getUUID(), here());
+        dataBound = true;
+        rememberOwnerSpawn(player);
+    }
+
+    public boolean isOwner(Player player) {
+        CompanionStore.Data d = data();
+        return d != null && d.owner.equals(player.getUUID().toString());
+    }
+
+    @Nullable
+    public ServerPlayer getOwner() {
+        UUID id = getOwnerUuid();
+        if (id == null || !(level() instanceof ServerLevel)) return null;
+        return server().getPlayerList().getPlayer(id);
     }
 
     public void setMode(Mode mode) {
-        this.mode = mode;
+        CompanionStore.Data d = data();
+        if (d != null) { d.mode = mode.name(); CompanionStore.markDirty(); }
         this.roamTarget = null;
         this.searching = false;
         this.arrivedHomeSaid = false;
         this.getNavigation().stop();
     }
 
-    public void setHome(ServerWorld world, BlockPos pos) {
-        this.homePos = pos.toImmutable();
-        this.homeDim = world.getRegistryKey();
+    public void setHome(ServerLevel level, BlockPos pos) {
+        CompanionStore.Data d = data();
+        if (d == null) return;
+        d.home = new CompanionStore.Spot(Compat.dimId(level.dimension()), pos.getX(), pos.getY(), pos.getZ());
+        CompanionStore.markDirty();
     }
 
-    @Nullable public BlockPos getHomePos() { return homePos; }
+    @Nullable
+    public BlockPos getHomePos() {
+        CompanionStore.Data d = data();
+        return d == null || d.home == null ? null : new BlockPos(d.home.x, d.home.y, d.home.z);
+    }
 
     // ------------------------------------------------------------------ talking
 
-    /** Nói một câu cho chủ và người chơi xung quanh nghe. */
+    /** Nói một câu cho chủ và người chơi xung quanh nghe ({@code %s} = tên cô ấy). */
     public void say(String text) {
         sayRaw(text.replace("%s", LyConfig.get().name));
-    }
-
-    /** Nói nguyên văn (không thay %s). */
-    public void sayRaw(String line) {
-        if (!(getWorld() instanceof ServerWorld sw)) return;
-        Text msg = Text.literal("<").formatted(Formatting.WHITE)
-                .append(Text.literal(LyConfig.get().name).formatted(Formatting.LIGHT_PURPLE))
-                .append(Text.literal("> ").formatted(Formatting.WHITE))
-                .append(Text.literal(line).formatted(Formatting.WHITE));
-        ServerPlayerEntity owner = getOwner();
-        if (owner != null) owner.sendMessage(msg, false);
-        for (ServerPlayerEntity p : sw.getPlayers()) {
-            if (p != owner && p.squaredDistanceTo(this) < 32 * 32) p.sendMessage(msg, false);
-        }
-        lastSpeakAge = this.age;
     }
 
     public void say(String[] lines) {
         say(Lines.pick(lines, getRandom()));
     }
 
-    /** Nói nhưng có giãn cách để không spam. */
+    /** Nói nguyên văn. */
+    public void sayRaw(String line) {
+        if (!(level() instanceof ServerLevel sl)) return;
+        Component msg = Component.literal("<")
+                .append(Component.literal(LyConfig.get().name).withStyle(ChatFormatting.LIGHT_PURPLE))
+                .append(Component.literal("> " + line));
+        ServerPlayer owner = getOwner();
+        if (owner != null) owner.sendSystemMessage(msg);
+        for (ServerPlayer p : sl.players()) {
+            if (p != owner && p.distanceToSqr(this) < 32 * 32) p.sendSystemMessage(msg);
+        }
+        lastSpeakTick = this.tickCount;
+    }
+
     private void sayRare(String[] lines, int cooldownTicks) {
-        if (this.age - lastSpeakAge > cooldownTicks) say(lines);
+        if (this.tickCount - lastSpeakTick > cooldownTicks) say(lines);
     }
 
     public void hearts() {
-        if (getWorld() instanceof ServerWorld sw) {
-            sw.spawnParticles(ParticleTypes.HEART, getX(), getY() + 2.0, getZ(), 5, 0.4, 0.3, 0.4, 0.0);
-        }
+        if (level() instanceof ServerLevel sl) Compat.hearts(sl, getX(), getY() + 2.0, getZ());
     }
 
     // ------------------------------------------------------------------ main AI loop
 
     @Override
-    protected void mobTick() {
-        super.mobTick();
-        if (!(getWorld() instanceof ServerWorld world)) return;
+    protected void lyServerTick(ServerLevel level) {
         LyConfig cfg = LyConfig.get();
-        ServerPlayerEntity owner = getOwner();
+        CompanionStore.Data d = data();
+        if (d == null && CompanionStore.isRetired(getUUID())) { discard(); return; }
+        ServerPlayer owner = getOwner();
 
-        if (this.age % 20 == 0) {
+        if (this.tickCount % 20 == 0) {
             if (getHealth() < getMaxHealth()) heal(1.0f);
-            if (ownerUuid != null) {
-                CompanionState.get(world.getServer()).put(ownerUuid, getUuid(), world.getRegistryKey(), getBlockPos(), mode == Mode.FOLLOW);
+            if (d != null) {
+                if (d.last == null || !d.last.same(Compat.dimId(level.dimension()), getBlockX(), getBlockY(), getBlockZ())) {
+                    d.last = here();
+                    CompanionStore.markDirty();
+                }
             }
             if (owner != null) rememberOwnerSpawn(owner);
             // Tự giữ chunk khi đang theo người chơi hoặc đang trên đường về nhà.
-            boolean keep = (owner != null && mode == Mode.FOLLOW) || travelingHome;
-            if (keep) ChunkKeeper.keep(world, getBlockPos(), cfg.chunkLoadRadius);
+            boolean keep = (owner != null && getMode() == Mode.FOLLOW) || travelingHome;
+            if (keep) Compat.keepChunk(level, chunkPosition(), cfg.chunkLoadRadius);
         }
 
-        if (ownerUuid == null) return; // chưa có chủ: đứng chơi một mình
+        if (d == null) return; // chưa có chủ: đứng chơi một mình
 
         if (owner == null) { // chủ offline → về nhà đợi
-            tickGoHome(world);
+            tickGoHome(level);
             return;
         }
 
         if (cfg.goHomeWhenOwnerSleeps && owner.isSleeping()) {
             if (!sleepHandled) { sleepHandled = true; arrivedHomeSaid = true; say(Lines.OWNER_SLEEP); }
-            tickGoHome(world);
+            tickGoHome(level);
             return;
         }
         sleepHandled = false;
 
+        Mode mode = getMode();
         switch (mode) {
             case STAY -> {
                 getNavigation().stop();
-                getLookControl().lookAt(owner, 30f, 30f);
+                getLookControl().setLookAt(owner, 30f, 30f);
             }
-            case HOME -> tickGoHome(world);
-            case FOLLOW -> tickFollow(world, owner);
+            case HOME -> tickGoHome(level);
+            case FOLLOW -> tickFollow(level, owner);
         }
 
         if (mode != Mode.HOME) defendOwner(owner);
-        tickMood(world, owner);
+        tickMood(level, owner);
     }
 
     // ------------------------------------------------------------------ FOLLOW
 
-    private void tickFollow(ServerWorld world, ServerPlayerEntity owner) {
+    private void tickFollow(ServerLevel level, ServerPlayer owner) {
         LyConfig cfg = LyConfig.get();
         travelingHome = false;
 
-        boolean otherWorld = owner.getWorld() != world;
-        double dist = otherWorld ? Double.MAX_VALUE : distanceTo(owner);
+        boolean otherLevel = owner.level() != level;
+        double dist = otherLevel ? Double.MAX_VALUE : distanceTo(owner);
 
         // 1) Quá xa hoặc khác chiều → tự tìm người chơi bằng dịch chuyển.
-        if (otherWorld || dist > cfg.teleportDistance) {
+        if (otherLevel || dist > cfg.teleportDistance) {
             if (!owner.isSpectator() && teleportToOwner(owner)) {
-                if (age - lastSpeakAge > 200) say(Lines.FOUND);
+                if (tickCount - lastSpeakTick > 200) say(Lines.FOUND);
             }
             return;
         }
@@ -276,7 +297,7 @@ public class LyMeowzEntity extends PathAwareEntity {
         if (dist > cfg.followRadius) {
             if (!searching) { searching = true; say(Lines.SEARCHING); }
             roamTarget = null;
-            getNavigation().startMovingTo(owner, 1.35);
+            getNavigation().moveTo(owner, 1.35);
             if (checkStuck()) teleportToOwner(owner);
             return;
         }
@@ -284,12 +305,12 @@ public class LyMeowzEntity extends PathAwareEntity {
 
         // 3) Trong bán kính → tự do đi chơi.
         roamTimer--;
-        boolean reached = roamTarget != null && roamTarget.isWithinDistance(getPos(), 2.5);
-        if (roamTarget == null || roamTimer <= 0 || reached || getNavigation().isIdle()) {
-            if (reached || roamTarget == null || roamTimer <= 0) pickRoamTarget(world, owner);
+        boolean reached = roamTarget != null && roamTarget.closerToCenterThan(position(), 2.5);
+        if (roamTarget == null || roamTimer <= 0 || reached || getNavigation().isDone()) {
+            if (reached || roamTarget == null || roamTimer <= 0) pickRoamTarget(level, owner);
             if (roamTarget != null) {
                 double speed = dist > 24 ? 1.2 : 1.0;
-                if (!getNavigation().startMovingTo(roamTarget.getX() + 0.5, roamTarget.getY(), roamTarget.getZ() + 0.5, speed)) {
+                if (!getNavigation().moveTo(roamTarget.getX() + 0.5, roamTarget.getY(), roamTarget.getZ() + 0.5, speed)) {
                     roamTarget = null;
                     roamTimer = 0;
                 }
@@ -302,64 +323,64 @@ public class LyMeowzEntity extends PathAwareEntity {
     }
 
     /** Chọn chỗ đi chơi tiếp theo, luôn nằm trong bán kính followRadius quanh người chơi. */
-    private void pickRoamTarget(ServerWorld world, ServerPlayerEntity owner) {
+    private void pickRoamTarget(ServerLevel level, ServerPlayer owner) {
         int radius = LyConfig.get().followRadius;
-        boolean underground = !world.isSkyVisible(owner.getBlockPos().up());
+        boolean underground = !level.canSeeSky(owner.blockPosition().above());
         float r = getRandom().nextFloat();
         roamTimer = 160 + getRandom().nextInt(340);
 
         // Hay quay về cạnh người chơi, nhất là khi ở trong hang hoặc ban đêm.
-        if (underground || world.isNight() || r < 0.4f) {
+        if (underground || Compat.isNight(level) || r < 0.4f) {
             int spread = underground ? 4 : 6;
-            roamTarget = owner.getBlockPos().add(
-                    getRandom().nextBetween(-spread, spread), 0, getRandom().nextBetween(-spread, spread));
+            roamTarget = owner.blockPosition().offset(
+                    getRandom().nextIntBetweenInclusive(-spread, spread), 0, getRandom().nextIntBetweenInclusive(-spread, spread));
             return;
         }
         // Đi khám phá: điểm ngẫu nhiên quanh người chơi, nghiêng về phía gần (bình phương).
         for (int attempt = 0; attempt < 8; attempt++) {
             double ang = getRandom().nextDouble() * Math.PI * 2;
             double d = 8 + (radius - 8) * Math.pow(getRandom().nextDouble(), 2.0);
-            int x = MathHelper.floor(owner.getX() + Math.cos(ang) * d);
-            int z = MathHelper.floor(owner.getZ() + Math.sin(ang) * d);
+            int x = Mth.floor(owner.getX() + Math.cos(ang) * d);
+            int z = Mth.floor(owner.getZ() + Math.sin(ang) * d);
             // Mỗi lần chỉ đi tối đa ~40 block từ chỗ đang đứng cho tự nhiên.
-            Vec3d from = getPos();
-            Vec3d to = new Vec3d(x, from.y, z);
+            Vec3 from = position();
+            Vec3 to = new Vec3(x, from.y, z);
             if (to.distanceTo(from) > 40) {
-                Vec3d dir = to.subtract(from).normalize().multiply(40);
-                x = MathHelper.floor(from.x + dir.x);
-                z = MathHelper.floor(from.z + dir.z);
+                Vec3 dir = to.subtract(from).normalize().scale(40);
+                x = Mth.floor(from.x + dir.x);
+                z = Mth.floor(from.z + dir.z);
             }
-            BlockPos column = new BlockPos(x, 0, z);
-            if (!world.isChunkLoaded(column)) continue;
-            int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+            BlockPos column = new BlockPos(x, owner.getBlockY(), z);
+            if (!level.isLoaded(column)) continue;
+            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
             BlockPos p = new BlockPos(x, y, z);
-            if (!world.getFluidState(p.down()).isEmpty()) continue;    // không nhảy xuống nước/lava
+            if (!level.getFluidState(p.below()).isEmpty()) continue;   // không nhảy xuống nước/lava
             if (Math.abs(y - owner.getBlockY()) > 24) continue;
-            if (!p.isWithinDistance(owner.getPos(), radius)) continue;
+            if (!p.closerToCenterThan(owner.position(), radius)) continue;
             roamTarget = p;
             return;
         }
-        roamTarget = owner.getBlockPos();
+        roamTarget = owner.blockPosition();
     }
 
-    private void defendOwner(ServerPlayerEntity owner) {
-        if (age % 10 != 0) return;
+    private void defendOwner(ServerPlayer owner) {
+        if (tickCount % 10 != 0) return;
         LivingEntity current = getTarget();
         if (current != null && current.isAlive()) return;
-        LivingEntity threat = owner.getAttacker();
-        if (!(threat instanceof Monster) || !threat.isAlive()) threat = owner.getAttacking();
-        if (threat instanceof Monster && threat.isAlive() && !(threat instanceof CreeperEntity)
-                && threat.getWorld() == getWorld() && threat.squaredDistanceTo(this) < 24 * 24) {
+        LivingEntity threat = owner.getLastHurtByMob();
+        if (!(threat instanceof Enemy) || !threat.isAlive()) threat = owner.getLastHurtMob();
+        if (threat instanceof Enemy && threat.isAlive() && !(threat instanceof Creeper)
+                && threat.level() == level() && threat.distanceToSqr(this) < 24 * 24) {
             setTarget(threat);
             sayRare(Lines.FIGHT, 600);
         }
     }
 
-    private void tickMood(ServerWorld world, ServerPlayerEntity owner) {
-        if (owner.getWorld() != world) return;
-        double d2 = owner.squaredDistanceTo(this);
-        if (world.getDimension().hasSkyLight()) {
-            if (world.isNight()) {
+    private void tickMood(ServerLevel level, ServerPlayer owner) {
+        if (owner.level() != level) return;
+        double d2 = owner.distanceToSqr(this);
+        if (level.dimensionType().hasSkyLight()) {
+            if (Compat.isNight(level)) {
                 if (!nightSaid && d2 < 32 * 32) { nightSaid = true; say(Lines.NIGHT); }
             } else {
                 nightSaid = false;
@@ -373,39 +394,39 @@ public class LyMeowzEntity extends PathAwareEntity {
 
     // ------------------------------------------------------------------ HOME
 
-    private void tickGoHome(ServerWorld world) {
-        HomeSpot home = resolveHome(world);
+    private void tickGoHome(ServerLevel level) {
+        HomeSpot home = resolveHome(level);
         if (home == null) { getNavigation().stop(); return; }
 
-        if (home.world != world) {
+        if (home.level != level) {
             travelingHome = true;
-            ChunkKeeper.keep(home.world, home.pos, 2);
-            teleportNear(home.world, home.pos, 0, 2);
+            Compat.keepChunk(home.level, new net.minecraft.world.level.ChunkPos(home.pos), 2);
+            teleportNear(home.level, home.pos, 0, 2);
             return;
         }
-        double dh = Math.sqrt(home.pos.getSquaredDistance(getPos()));
+        double dh = Vec3.atBottomCenterOf(home.pos).distanceTo(position());
         if (dh > 512) { // quá xa để đi bộ
             travelingHome = true;
-            ChunkKeeper.keep(world, home.pos, 2);
-            teleportNear(world, home.pos, 0, 2);
+            Compat.keepChunk(level, new net.minecraft.world.level.ChunkPos(home.pos), 2);
+            teleportNear(level, home.pos, 0, 2);
             return;
         }
         if (dh > 3) {
             travelingHome = true;
             arrivedHomeSaid = false;
-            if (getNavigation().isIdle() || age % 60 == 0) {
+            if (getNavigation().isDone() || tickCount % 60 == 0) {
                 // Đi từng chặng ~24 block về phía nhà.
-                Vec3d dir = Vec3d.ofBottomCenter(home.pos).subtract(getPos());
+                Vec3 dir = Vec3.atBottomCenterOf(home.pos).subtract(position());
                 double step = Math.min(dh, 24);
-                Vec3d hop = getPos().add(dir.normalize().multiply(step));
-                BlockPos hopPos = BlockPos.ofFloored(hop);
+                Vec3 hop = position().add(dir.normalize().scale(step));
+                BlockPos hopPos = BlockPos.containing(hop);
                 int y = dh <= 24 ? home.pos.getY()
-                        : (world.isChunkLoaded(hopPos) ? world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, hopPos.getX(), hopPos.getZ()) : home.pos.getY());
-                if (!getNavigation().startMovingTo(hop.x, y, hop.z, 1.1)) stuckCount++;
+                        : (level.isLoaded(hopPos) ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, hopPos.getX(), hopPos.getZ()) : home.pos.getY());
+                if (!getNavigation().moveTo(hop.x, y, hop.z, 1.1)) stuckCount++;
             }
             if (checkStuck() || stuckCount > 6) {
                 stuckCount = 0;
-                teleportNear(world, home.pos, 0, 2);
+                teleportNear(level, home.pos, 0, 2);
             }
             return;
         }
@@ -413,95 +434,105 @@ public class LyMeowzEntity extends PathAwareEntity {
         travelingHome = false;
         if (!arrivedHomeSaid) {
             arrivedHomeSaid = true;
-            ServerPlayerEntity owner = getOwner();
+            ServerPlayer owner = getOwner();
             if (owner != null && !owner.isSleeping()) say(Lines.ARRIVED_HOME);
         }
-        if (getNavigation().isIdle() && getRandom().nextInt(200) == 0) {
-            BlockPos p = home.pos.add(getRandom().nextBetween(-4, 4), 0, getRandom().nextBetween(-4, 4));
-            getNavigation().startMovingTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5, 0.7);
+        if (getNavigation().isDone() && getRandom().nextInt(200) == 0) {
+            BlockPos p = home.pos.offset(getRandom().nextIntBetweenInclusive(-4, 4), 0, getRandom().nextIntBetweenInclusive(-4, 4));
+            getNavigation().moveTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5, 0.7);
         }
     }
 
-    private record HomeSpot(ServerWorld world, BlockPos pos) {}
+    private record HomeSpot(ServerLevel level, BlockPos pos) {}
 
     @Nullable
-    private HomeSpot resolveHome(ServerWorld current) {
-        var server = current.getServer();
-        if (homePos != null && homeDim != null) {
-            ServerWorld w = server.getWorld(homeDim);
-            if (w != null) return new HomeSpot(w, homePos);
-        }
-        if (ownerSpawnPos != null && ownerSpawnDim != null) {
-            ServerWorld w = server.getWorld(ownerSpawnDim);
-            if (w != null) return new HomeSpot(w, ownerSpawnPos);
-        }
-        ServerWorld ow = server.getOverworld();
-        return new HomeSpot(ow, ow.getSpawnPos());
+    private HomeSpot fromSpot(MinecraftServer server, @Nullable CompanionStore.Spot s) {
+        if (s == null) return null;
+        var key = Compat.dim(s.dim);
+        ServerLevel l = key == null ? null : server.getLevel(key);
+        return l == null ? null : new HomeSpot(l, new BlockPos(s.x, s.y, s.z));
     }
 
-    private void rememberOwnerSpawn(ServerPlayerEntity owner) {
-        BlockPos spawn = owner.getSpawnPointPosition();
-        if (spawn != null) {
-            ownerSpawnPos = spawn;
-            ownerSpawnDim = owner.getSpawnPointDimension();
+    @Nullable
+    private HomeSpot resolveHome(ServerLevel current) {
+        MinecraftServer server = current.getServer();
+        CompanionStore.Data d = data();
+        if (d != null) {
+            HomeSpot h = fromSpot(server, d.home);
+            if (h == null) h = fromSpot(server, d.ownerSpawn);
+            if (h != null) return h;
+        }
+        ServerLevel ow = server.overworld();
+        return new HomeSpot(ow, Compat.worldSpawn(ow));
+    }
+
+    private void rememberOwnerSpawn(ServerPlayer owner) {
+        CompanionStore.Data d = data();
+        GlobalPos spawn = Compat.respawn(owner);
+        if (d == null || spawn == null) return;
+        String dim = Compat.dimId(spawn.dimension());
+        BlockPos p = spawn.pos();
+        if (d.ownerSpawn == null || !d.ownerSpawn.same(dim, p.getX(), p.getY(), p.getZ())) {
+            d.ownerSpawn = new CompanionStore.Spot(dim, p.getX(), p.getY(), p.getZ());
+            CompanionStore.markDirty();
         }
     }
 
     // ------------------------------------------------------------------ teleport / stuck
 
-    public boolean teleportToOwner(ServerPlayerEntity owner) {
-        if (!(owner.getWorld() instanceof ServerWorld ow)) return false;
+    public boolean teleportToOwner(ServerPlayer owner) {
+        if (!(owner.level() instanceof ServerLevel ol)) return false;
         roamTarget = null;
         searching = false;
-        return teleportNear(ow, owner.getBlockPos(), 1, 3);
+        return teleportNear(ol, owner.blockPosition(), 1, 3);
     }
 
     /** Tìm chỗ an toàn quanh {@code center} rồi dịch chuyển tới (kể cả khác chiều không gian). */
-    public boolean teleportNear(ServerWorld target, BlockPos center, int minR, int maxR) {
+    public boolean teleportNear(ServerLevel target, BlockPos center, int minR, int maxR) {
         for (int i = 0; i < 24; i++) {
-            int dx = getRandom().nextBetween(-maxR, maxR);
-            int dz = getRandom().nextBetween(-maxR, maxR);
+            int dx = getRandom().nextIntBetweenInclusive(-maxR, maxR);
+            int dz = getRandom().nextIntBetweenInclusive(-maxR, maxR);
             if (Math.abs(dx) < minR && Math.abs(dz) < minR) continue;
             for (int dy = -2; dy <= 2; dy++) {
-                BlockPos p = center.add(dx, dy, dz);
+                BlockPos p = center.offset(dx, dy, dz);
                 if (isSafeSpot(target, p)) { doTeleport(target, p); return true; }
             }
         }
         if (isSafeSpot(target, center)) { doTeleport(target, center); return true; }
         // Cùng lắm thì lên mặt đất ngay trên điểm đó.
-        int y = target.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, center.getX(), center.getZ());
+        int y = target.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, center.getX(), center.getZ());
         BlockPos top = new BlockPos(center.getX(), y, center.getZ());
         if (isSafeSpot(target, top)) { doTeleport(target, top); return true; }
         return false;
     }
 
-    private boolean isSafeSpot(ServerWorld w, BlockPos p) {
-        BlockPos below = p.down();
-        if (!w.getBlockState(below).isSideSolidFullSquare(w, below, Direction.UP)) return false;
-        if (!w.getFluidState(p).isEmpty() || !w.getFluidState(p.up()).isEmpty()) return false;
-        return w.isSpaceEmpty(this, getType().getDimensions().getBoxAt(Vec3d.ofBottomCenter(p)));
+    private boolean isSafeSpot(ServerLevel l, BlockPos p) {
+        BlockPos below = p.below();
+        if (!l.getBlockState(below).isFaceSturdy(l, below, Direction.UP)) return false;
+        if (!l.getFluidState(p).isEmpty() || !l.getFluidState(p.above()).isEmpty()) return false;
+        return l.noCollision(this, getType().getDimensions().makeBoundingBox(Vec3.atBottomCenterOf(p)));
     }
 
-    private void doTeleport(ServerWorld target, BlockPos p) {
+    private void doTeleport(ServerLevel target, BlockPos p) {
         getNavigation().stop();
         stuckCount = 0;
-        fallDistance = 0;
-        Vec3d pos = Vec3d.ofBottomCenter(p);
-        if (target == getWorld()) {
-            requestTeleport(pos.x, pos.y, pos.z);
+        resetFallDistance();
+        Vec3 pos = Vec3.atBottomCenterOf(p);
+        if (target == level()) {
+            teleportTo(pos.x, pos.y, pos.z);
         } else {
-            // Đổi chiều không gian: Minecraft tạo bản sao giữ nguyên UUID + dữ liệu NBT.
-            teleportTo(new TeleportTarget(target, pos, Vec3d.ZERO, getYaw(), getPitch(), TeleportTarget.NO_OP));
+            // Đổi chiều không gian: Minecraft tạo bản sao giữ nguyên UUID → dữ liệu trong CompanionStore vẫn khớp.
+            Compat.changeDimension(this, target, pos, getYRot(), getXRot());
         }
         lastStuckCheck = pos;
     }
 
     /** Mỗi 2 giây kiểm tra: đang muốn đi mà gần như không nhúc nhích → coi như bị kẹt. */
     private boolean checkStuck() {
-        if (age % 40 != 0) return false;
-        Vec3d now = getPos();
-        boolean moving = !getNavigation().isIdle();
-        if (moving && now.squaredDistanceTo(lastStuckCheck) < 0.5) stuckCount++;
+        if (tickCount % 40 != 0) return false;
+        Vec3 now = position();
+        boolean moving = !getNavigation().isDone();
+        if (moving && now.distanceToSqr(lastStuckCheck) < 0.5) stuckCount++;
         else stuckCount = 0;
         lastStuckCheck = now;
         if (stuckCount >= 3) { stuckCount = 0; return true; }
@@ -511,152 +542,116 @@ public class LyMeowzEntity extends PathAwareEntity {
     // ------------------------------------------------------------------ interaction
 
     @Override
-    protected ActionResult interactMob(PlayerEntity player, Hand hand) {
-        if (getWorld().isClient) return ActionResult.SUCCESS;
-        ServerPlayerEntity sp = (ServerPlayerEntity) player;
-        ItemStack stack = player.getStackInHand(hand);
+    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (level().isClientSide) return InteractionResult.SUCCESS;
+        ServerPlayer sp = (ServerPlayer) player;
+        ItemStack stack = player.getItemInHand(hand);
 
-        if (ownerUuid == null) {
-            CompanionState.Entry existing = CompanionState.get(sp.getServer()).get(player.getUuid());
-            if (existing != null && !existing.companion.equals(getUuid())) {
+        if (data() == null) {
+            CompanionStore.Data existing = CompanionStore.byOwner(player.getUUID());
+            if (existing != null) {
                 say(Lines.STRANGER);
-                return ActionResult.SUCCESS;
+                return InteractionResult.SUCCESS;
             }
-            setOwner(player);
+            setOwner(sp);
             say(Lines.FIRST_MEET);
             hearts();
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         if (!isOwner(player)) {
             sayRare(Lines.STRANGER, 60);
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
 
-        FoodComponent food = stack.get(DataComponentTypes.FOOD);
+        FoodProperties food = stack.get(DataComponents.FOOD);
         if (food != null) {
             heal(Math.max(2, food.nutrition() * 2));
-            stack.decrementUnlessCreative(1, player);
+            useOne(stack, player);
             say(Lines.FED);
             hearts();
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
-        if (stack.isIn(ItemTags.FLOWERS)) {
-            stack.decrementUnlessCreative(1, player);
+        if (Compat.isFlower(stack)) {
+            useOne(stack, player);
             say(Lines.GIFT_FLOWER);
             hearts();
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
-        if (player.isSneaking()) {
-            setHome((ServerWorld) getWorld(), getBlockPos());
+        if (player.isShiftKeyDown()) {
+            setHome((ServerLevel) level(), blockPosition());
             say(Lines.HOME_SET);
             hearts();
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
-        if (mode == Mode.FOLLOW) { setMode(Mode.STAY); say(Lines.STAY); }
+        if (getMode() == Mode.FOLLOW) { setMode(Mode.STAY); say(Lines.STAY); }
         else { setMode(Mode.FOLLOW); say(Lines.FOLLOW); }
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
+    }
+
+    private static void useOne(ItemStack stack, Player player) {
+        if (!player.getAbilities().instabuild) stack.shrink(1);
     }
 
     // ------------------------------------------------------------------ damage / never die
 
     @Override
-    public boolean damage(DamageSource source, float amount) {
-        if (getWorld().isClient || ownerUuid == null) return super.damage(source, amount);
-        if (source.isOf(DamageTypes.GENERIC_KILL)) return super.damage(source, amount);
-
-        Entity attacker = source.getAttacker();
-        if (attacker instanceof PlayerEntity p && isOwner(p)) {
+    protected boolean lyAllowHurt(ServerLevel level, DamageSource source, float amount) {
+        if (data() == null || source.is(DamageTypes.GENERIC_KILL)) return true;
+        Entity attacker = source.getEntity();
+        if (attacker instanceof Player p && isOwner(p)) {
             sayRare(Lines.HURT_BY_OWNER, 100);
             return false;
         }
         if (getHealth() - amount <= 1.0f) {
-            faint();
+            faint(level);
             return false;
         }
-        return super.damage(source, amount);
+        return true;
     }
 
-    private void faint() {
+    private void faint(ServerLevel level) {
         setHealth(getMaxHealth() * 0.5f);
-        extinguish();
-        clearStatusEffects();
+        clearFire();
+        removeAllEffects();
         setTarget(null);
-        fallDistance = 0;
+        resetFallDistance();
         say(Lines.FAINT);
-        mode = Mode.HOME;
-        if (getWorld() instanceof ServerWorld sw) {
-            HomeSpot home = resolveHome(sw);
-            if (home != null) teleportNear(home.world, home.pos, 0, 2);
-        }
+        setMode(Mode.HOME);
+        HomeSpot home = resolveHome(level);
+        if (home != null) teleportNear(home.level, home.pos, 0, 2);
     }
 
     @Override
     public void remove(RemovalReason reason) {
         super.remove(reason);
-        if (reason.shouldDestroy() && ownerUuid != null && getWorld() instanceof ServerWorld sw) {
-            CompanionState state = CompanionState.get(sw.getServer());
-            CompanionState.Entry e = state.get(ownerUuid);
-            if (e != null && e.companion.equals(getUuid())) state.remove(ownerUuid);
+        if (reason.shouldDestroy() && level() instanceof ServerLevel) {
+            CompanionStore.Data d = CompanionStore.byCompanion(getUUID());
+            if (d != null) CompanionStore.remove(d);
+            CompanionStore.forgetRetired(getUUID());
         }
     }
 
-    @Override public boolean cannotDespawn() { return true; }
-    @Override public boolean canImmediatelyDespawn(double distanceSquared) { return false; }
-    @Override protected boolean isDisallowedInPeaceful() { return false; }
+    @Override public boolean removeWhenFarAway(double distanceSquared) { return false; }
 
     @Override
-    public boolean canTarget(LivingEntity target) {
-        if (target instanceof PlayerEntity p && isOwner(p)) return false;
+    public boolean canAttack(LivingEntity target) {
+        if (target instanceof Player p && isOwner(p)) return false;
         if (target instanceof LyMeowzEntity) return false;
-        return super.canTarget(target);
+        return super.canAttack(target);
     }
 
     // ------------------------------------------------------------------ events from tracker
 
     /** Gọi khi chủ vừa vào game và tìm thấy cô ấy. */
-    public void onOwnerReturned(ServerPlayerEntity owner) {
-        if (mode == Mode.HOME) setMode(Mode.FOLLOW);
+    public void onOwnerReturned(ServerPlayer owner) {
+        if (getMode() == Mode.HOME) setMode(Mode.FOLLOW);
         say(Lines.WELCOME_BACK);
         hearts();
-    }
-
-    // ------------------------------------------------------------------ save / load
-
-    @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
-        if (ownerUuid != null) nbt.putUuid("LyOwner", ownerUuid);
-        nbt.putString("LyMode", mode.name());
-        if (homePos != null && homeDim != null) {
-            nbt.putLong("LyHome", homePos.asLong());
-            nbt.putString("LyHomeDim", homeDim.getValue().toString());
+        // Chạy ra đón chủ trước rồi mới đi chơi tiếp.
+        if (getMode() == Mode.FOLLOW && owner.level() == level()) {
+            roamTarget = owner.blockPosition();
+            roamTimer = 300;
+            getNavigation().moveTo(owner, 1.3);
         }
-        if (ownerSpawnPos != null && ownerSpawnDim != null) {
-            nbt.putLong("LyOwnerSpawn", ownerSpawnPos.asLong());
-            nbt.putString("LyOwnerSpawnDim", ownerSpawnDim.getValue().toString());
-        }
-        brain.writeNbt(nbt);
-    }
-
-    @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
-        ownerUuid = nbt.containsUuid("LyOwner") ? nbt.getUuid("LyOwner") : null;
-        try { mode = Mode.valueOf(nbt.getString("LyMode")); } catch (IllegalArgumentException e) { mode = Mode.FOLLOW; }
-        if (nbt.contains("LyHome")) {
-            homePos = BlockPos.fromLong(nbt.getLong("LyHome"));
-            homeDim = worldKey(nbt.getString("LyHomeDim"));
-        }
-        if (nbt.contains("LyOwnerSpawn")) {
-            ownerSpawnPos = BlockPos.fromLong(nbt.getLong("LyOwnerSpawn"));
-            ownerSpawnDim = worldKey(nbt.getString("LyOwnerSpawnDim"));
-        }
-        brain.readNbt(nbt);
-    }
-
-    @Nullable
-    private static RegistryKey<World> worldKey(String id) {
-        Identifier i = Identifier.tryParse(id);
-        return i == null ? null : RegistryKey.of(RegistryKeys.WORLD, i);
     }
 }

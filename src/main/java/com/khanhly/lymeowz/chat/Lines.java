@@ -1,6 +1,6 @@
 package com.khanhly.lymeowz.chat;
 
-import net.minecraft.util.math.random.Random;
+import net.minecraft.util.RandomSource;
 
 /**
  * Lời thoại của LyMeowz. Câu cửa miệng "Mugyu~" xuất hiện khi cô ấy
@@ -125,7 +125,7 @@ public final class Lines {
             "Mình là %s nè~ Bạn đồng hành của cậu đó!",
     };
 
-    public static String pick(String[] lines, Random random) {
+    public static String pick(String[] lines, RandomSource random) {
         return lines[random.nextInt(lines.length)];
     }
 }

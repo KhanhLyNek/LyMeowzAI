@@ -1,53 +1,76 @@
 plugins {
-    id 'fabric-loom' version "${loom_version}"
-    id 'maven-publish'
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}" apply false
+    id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
 }
 
-version = project.mod_version
-group = project.maven_group
+// Cấu hình chung cho mọi bản build trong versions/<phiên bản>/
+subprojects { p ->
+    def mc = p.property('minecraft_version')
+    def unobf = p.property('loom_type') == 'plain'
+    def compat = p.property('compat')
+    def clientCompat = p.findProperty('client_compat') ?: compat
+    def javaVer = (p.property('java_version') as String).toInteger()
 
-base {
-    archivesName = project.archives_base_name
-}
+    apply plugin: unobf ? 'net.fabricmc.fabric-loom' : 'net.fabricmc.fabric-loom-remap'
 
-loom {
-    splitEnvironmentSourceSets()
+    version = "${rootProject.mod_version}+${mc}"
+    group = rootProject.maven_group
+    base { archivesName = rootProject.archives_base_name }
 
-    mods {
-        "lymeowz" {
-            sourceSet sourceSets.main
-            sourceSet sourceSets.client
+    loom {
+        splitEnvironmentSourceSets()
+        mods {
+            lymeowz {
+                sourceSet sourceSets.main
+                sourceSet sourceSets.client
+            }
+        }
+        runConfigs.configureEach { ideConfigGenerated = false }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = [rootProject.file('src/main/java'), rootProject.file("compat/${compat}/main")]
+            resources.srcDirs = [rootProject.file('src/main/resources')]
+        }
+        client {
+            java.srcDirs = [rootProject.file('src/client/java'), rootProject.file("compat/${clientCompat}/client")]
+            resources.srcDirs = []
         }
     }
-}
 
-dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-}
-
-processResources {
-    inputs.property "version", project.version
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
+    dependencies {
+        minecraft "com.mojang:minecraft:${mc}"
+        if (unobf) {
+            implementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
+            implementation "net.fabricmc.fabric-api:fabric-api:${p.property('fabric_version')}"
+        } else {
+            mappings p.extensions.getByName('loom').officialMojangMappings()
+            modImplementation "net.fabricmc:fabric-loader:${rootProject.loader_version}"
+            modImplementation "net.fabricmc.fabric-api:fabric-api:${p.property('fabric_version')}"
+        }
     }
-}
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
-    it.options.encoding = 'UTF-8'
-}
-
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}" }
+    processResources {
+        def props = [version: p.version, mc_range: p.property('mc_range'),
+                     java: javaVer, loader_min: p.property('loader_min')]
+        inputs.properties props
+        filesMatching('fabric.mod.json') { expand props }
     }
+
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(javaVer) }
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.release = javaVer
+        options.encoding = 'UTF-8'
+    }
+
+    // Gom jar của mọi phiên bản về build/libs ở thư mục gốc.
+    def jarTask = unobf ? tasks.named('jar') : tasks.named('remapJar')
+    tasks.register('collectJar', Copy) {
+        from jarTask.flatMap { it.archiveFile }
+        into rootProject.layout.buildDirectory.dir('libs')
+    }
+    tasks.named('build') { finalizedBy 'collectJar' }
 }
