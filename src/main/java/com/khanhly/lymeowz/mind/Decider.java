@@ -14,6 +14,10 @@ import com.khanhly.lymeowz.survival.task.CraftTask;
 import com.khanhly.lymeowz.survival.task.EatTask;
 import com.khanhly.lymeowz.survival.task.ExploreTask;
 import com.khanhly.lymeowz.survival.task.FarmTask;
+import com.khanhly.lymeowz.survival.task.GatherTask;
+import com.khanhly.lymeowz.survival.task.ObsidianTask;
+import com.khanhly.lymeowz.survival.task.PortalTask;
+import com.khanhly.lymeowz.survival.task.UpgradeTask;
 import com.khanhly.lymeowz.survival.task.HouseTask;
 import com.khanhly.lymeowz.survival.task.HuntTask;
 import com.khanhly.lymeowz.survival.task.MineTask;
@@ -88,6 +92,7 @@ public class Decider {
             treeCache = ChopTreeTask.find(ly, level, center, radius, blacklist);
             mineCache = pickTier >= 1 ? MineTask.findTarget(ly, level, center, radius, blacklist) : null;
             craftCache = Survival.nextCraft(ly, level, all, stage);
+            lavaCache = stage == Roadmap.Stage.NETHER ? nearLava(level) : null;
         }
 
         // Chạy trốn: nhút nhát + có quái + đang yếu hoặc rất sợ.
@@ -102,6 +107,14 @@ public class Decider {
             out.add(new Option("ăn", 0.45f + needH * 0.6f, "HUNGRY", ly.getHunger() <= 6, () -> new EatTask(ly)));
         }
 
+        // Hết đồ ăn mà rương ở nhà còn: về lấy.
+        BlockPos chestPos = ly.structure("chest");
+        if (ly.getHunger() <= 12 && all.count(s -> Tools.edible(s, 7)) == 0 && chestPos != null
+                && chestPos.distSqr(ly.blockPosition()) < 96 * 96 && StoreTask.hasFood(level, chestPos)) {
+            boolean starving2 = ly.getHunger() <= 6;
+            out.add(new Option("cất đồ", starving2 ? 0.92f : 0.6f, "HUNGRY", starving2, () -> new StoreTask(ly, chestPos)));
+        }
+
         // Nhặt đồ rơi.
         ItemEntity drop = CollectTask.find(ly, level, 8);
         if (drop != null) out.add(new Option("nhặt đồ", 0.5f, null, false, () -> new CollectTask(ly, drop)));
@@ -114,7 +127,9 @@ public class Decider {
 
         // Nung.
         int raw = all.count(Tools::isRawMeat), rawIron = all.count(Items.RAW_IRON);
-        if (SmeltTask.canSmelt(ly) && (raw >= 2 || rawIron >= 3 || (raw > 0 && needH > 0.3f))) {
+        boolean wantGlass = ly.data() != null && !ly.data().structures.containsKey(UpgradeTask.Kind.WINDOWS.key())
+                && all.count(Items.GLASS) < 3 && all.count(Items.SAND) >= 3;
+        if (SmeltTask.canSmelt(ly) && (raw >= 2 || rawIron >= 3 || (raw > 0 && needH > 0.3f) || wantGlass)) {
             out.add(new Option("nung", 0.35f + needH * 0.4f + (rawIron >= 3 ? 0.15f : 0), raw > 0 ? "RAW_FOOD" : "UPGRADE", false, () -> new SmeltTask(ly)));
         }
 
@@ -128,7 +143,8 @@ public class Decider {
         int food = all.count(Tools::isGoodFood) + raw;
         boolean meatOnGround = drop != null && Tools.isFood(drop.getItem());
         if ((food < 4 || focus == Survival.Focus.FOOD) && !meatOnGround) { // nhặt thịt vừa rơi trước đã
-            Animal prey = HuntTask.find(ly, level, radius);
+            boolean desperate = ly.getHunger() <= 6 && food == 0;
+            Animal prey = HuntTask.find(ly, level, desperate ? Math.max(radius, 40) : radius, desperate);
             if (prey != null && (pen == null || !RanchTask.inPen(pen, prey))) {
                 float s = (0.3f + needH * 0.5f + (food == 0 ? 0.15f : 0)) * (0.6f + 0.4f * p.fighter)
                         * expect("đi săn") * (1 - fear * 0.5f) + (focus == Survival.Focus.FOOD ? 0.4f : 0);
@@ -176,6 +192,9 @@ public class Decider {
                 out.add(new Option("đào mỏ", s * 0.9f, "STONE_LOW", false, () -> new StairMineTask(ly, target, 8)));
             }
         }
+
+        // ---------------------------------------------------------------- cổng Nether
+        if (stage == Roadmap.Stage.NETHER) netherOptions(level, all, out, p, home);
 
         // Đào mỏ sâu tìm sắt / kim cương.
         if ((stage == Roadmap.Stage.IRON || stage == Roadmap.Stage.DIAMOND) && pickTier >= 2 && ly.getHealth() > 14
@@ -258,6 +277,8 @@ public class Decider {
                     }
                 }
             }
+            // Nhà lớn dần: đuốc, vườn hoa, cửa sổ, phòng mới.
+            if (!night && Roadmap.has(ly, "bed")) upgradeOptions(level, all, out, p, house);
             // Cất đồ vào rương.
             BlockPos chest = ly.structure("chest");
             if (chest != null && now > storeAgain && StoreTask.wants(ly)) {
@@ -316,6 +337,75 @@ public class Decider {
         return out;
     }
 
+    /** Sửa sang nhà: việc đầu tiên đủ đồ thì làm; chưa đủ thì đi gom đồ cho những việc còn lại. */
+    private void upgradeOptions(ServerLevel level, LyInventory all, List<Option> out, Personality p, BlockPos house) {
+        var d = ly.data();
+        if (d == null) return;
+        float s = (0.3f + 0.35f * p.builder) * expect("sửa nhà");
+        for (UpgradeTask.Kind k : UpgradeTask.Kind.values()) {
+            if (d.structures.containsKey(k.key())) continue;
+            if (k == UpgradeTask.Kind.ROOM2 && !UpgradeTask.roomFits(level, house)) {
+                d.structures.put(k.key(), d.structures.get("house")); // không có chỗ xây thêm: thôi
+                continue;
+            }
+            if (UpgradeTask.ready(ly, k)) {
+                out.add(new Option("sửa nhà", s + 0.1f, "BUILDER", false, () -> new UpgradeTask(ly, house, k)));
+                return;
+            }
+        }
+        if (now(level) < gatherAgain) return;
+        if (!d.structures.containsKey(UpgradeTask.Kind.GARDEN.key())) {
+            BlockPos f = GatherTask.nearest(ly, level, st -> st.is(net.minecraft.tags.BlockTags.SMALL_FLOWERS), 20, java.util.Set.of());
+            if (f != null) out.add(new Option("hái hoa", s * 0.9f, "BUILDER", false, () -> { gatherAgain = now(level) + 1200;
+                return new GatherTask(ly, "hái hoa", st -> st.is(net.minecraft.tags.BlockTags.SMALL_FLOWERS), com.khanhly.lymeowz.compat.Compat::isFlower, 5, 12, 20); }));
+        }
+        if (!d.structures.containsKey(UpgradeTask.Kind.WINDOWS.key()) && all.count(Items.SAND) + all.count(Items.GLASS) < 3) {
+            BlockPos sand = GatherTask.nearest(ly, level, st -> st.is(net.minecraft.tags.BlockTags.SAND), 24, java.util.Set.of());
+            if (sand != null) out.add(new Option("xúc cát", s * 0.9f, "BUILDER", false, () -> { gatherAgain = now(level) + 1200;
+                return new GatherTask(ly, "xúc cát", st -> st.is(net.minecraft.tags.BlockTags.SAND), x -> x.is(Items.SAND), 4, 8, 24); }));
+        }
+    }
+
+    private long gatherAgain;
+
+    private static long now(ServerLevel level) {
+        return level.getGameTime();
+    }
+
+    /** Bước "cổng Nether": đá lửa, bật lửa, obsidian, dựng cổng. */
+    private void netherOptions(ServerLevel level, LyInventory all, List<Option> out, Personality p, BlockPos home) {
+        float base = (0.4f + 0.2f * p.diligent + 0.15f * p.curious);
+        boolean flint = all.has(Items.FLINT) || all.has(Items.FLINT_AND_STEEL);
+        if (!flint && now(level) > gatherAgain) {
+            BlockPos g = GatherTask.nearest(ly, level, st -> st.is(net.minecraft.world.level.block.Blocks.GRAVEL), 24, java.util.Set.of());
+            if (g != null) out.add(new Option("đào sỏi", base, "UPGRADE", false, () -> { gatherAgain = now(level) + 1200;
+                return new GatherTask(ly, "đào sỏi", st -> st.is(net.minecraft.world.level.block.Blocks.GRAVEL), x -> x.is(Items.FLINT), 1, 24, 24); }));
+        }
+        int obsidian = all.count(Items.OBSIDIAN);
+        if (obsidian < ObsidianTask.NEED && ObsidianTask.canStart(ly)) {
+            boolean lavaKnown = mind().nearest(Mind.PlaceKind.LAVA, ly.blockPosition()) != null;
+            if (lavaKnown || lavaCache != null) {
+                out.add(new Option("làm obsidian", base + 0.1f, "UPGRADE", false, () -> new ObsidianTask(ly)));
+            } else if (ly.getHealth() > 14 && all.count(Tools::isGoodFood) >= 3) {
+                int ty = Math.min(ly.getBlockY() - 4, -45);
+                out.add(new Option("đào mỏ", base, "LAVA", false, () -> new StairMineTask(ly, ty, 32)));
+            }
+        }
+        if (PortalTask.canStart(ly) && home != null) {
+            if (portalSite == null || portalSite.distSqr(home) > 20 * 20) portalSite = PortalTask.findSite(ly, level, home);
+            if (portalSite != null) {
+                BlockPos site = portalSite;
+                out.add(new Option("dựng cổng Nether", base + 0.25f, "BUILDER", false, () -> new PortalTask(ly, site)));
+            }
+        }
+    }
+
+    private BlockPos portalSite, lavaCache;
+
+    private Mind mind() {
+        return ly.mind();
+    }
+
     /** Chăn nuôi: dụ thú về, cho ăn để đẻ, cắt lông, làm thịt bớt khi đông. */
     private void ranch(ServerLevel level, BlockPos pen, List<Option> out, Personality p) {
         List<Animal> in = RanchTask.penned(level, pen);
@@ -369,6 +459,15 @@ public class Decider {
             if (s > bestScore) { bestScore = s; best = o; }
         }
         return best;
+    }
+
+    private BlockPos nearLava(ServerLevel level) {
+        BlockPos c = ly.blockPosition();
+        for (BlockPos q : BlockPos.betweenClosed(c.offset(-16, -8, -16), c.offset(16, 4, 16))) {
+            var f = level.getFluidState(q);
+            if (f.isSource() && f.is(net.minecraft.tags.FluidTags.LAVA)) return q.immutable();
+        }
+        return null;
     }
 
     private static BlockPos placePos(MindData.Place p) {

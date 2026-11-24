@@ -43,7 +43,7 @@ public class StoreTask extends Task {
     /** Bao nhiêu món loại này cô ấy muốn mang theo người. */
     public static int keep(ItemStack s) {
         if (s.isDamageableItem() || s.get(DataComponents.EQUIPPABLE) != null) return 64; // đồ nghề, giáp, khiên
-        if (Tools.isGoodFood(s)) return 16;
+        if (Tools.isGoodFood(s) || Tools.isRawMeat(s)) return 16;
         if (s.is(Items.TORCH)) return 32;
         if (s.is(ItemTags.STONE_TOOL_MATERIALS) || s.is(Items.COBBLED_DEEPSLATE)) return 64;
         if (s.is(ItemTags.PLANKS)) return 32;
@@ -122,17 +122,18 @@ public class StoreTask extends Task {
             }
             slot++;
         }
-        // Hết đồ ăn thì lấy ra.
+        // Hết đồ ăn thì lấy ra (đồ chín trước, không có thì thịt sống để nướng).
         if (inv.count(Tools::isGoodFood) < 4) {
-            for (int i = 0; i < c.getContainerSize(); i++) {
+            outer:
+            for (int pass = 0; pass < 2; pass++) for (int i = 0; i < c.getContainerSize(); i++) {
                 ItemStack s = c.getItem(i);
-                if (!Tools.isGoodFood(s)) continue;
+                if (pass == 0 ? !Tools.isGoodFood(s) : !Tools.isRawMeat(s)) continue;
                 ItemStack got = s.split(Math.min(s.getCount(), 8));
                 c.setChanged();
                 ItemStack left = inv.put(got);
-                if (!left.isEmpty()) { s.grow(left.getCount()); break; }
+                if (!left.isEmpty()) { s.grow(left.getCount()); break outer; }
                 taken += got.getCount();
-                break;
+                break outer;
             }
         }
         return false;
@@ -164,6 +165,16 @@ public class StoreTask extends Task {
     @Override
     public void stop(ServerLevel level) {
         if (opened && level.getBlockState(chest).getBlock() instanceof ChestBlock) lid(level, false);
+    }
+
+    /** Trong rương có đồ ăn không. */
+    public static boolean hasFood(ServerLevel level, BlockPos chest) {
+        BlockState st = level.getBlockState(chest);
+        if (!(st.getBlock() instanceof ChestBlock cb)) return false;
+        Container c = ChestBlock.getContainer(cb, st, level, chest, true);
+        if (c == null) return false;
+        for (int i = 0; i < c.getContainerSize(); i++) if (Tools.isGoodFood(c.getItem(i)) || Tools.isRawMeat(c.getItem(i))) return true;
+        return false;
     }
 
     /** Số món đang cất trong rương. */

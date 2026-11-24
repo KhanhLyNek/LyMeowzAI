@@ -113,7 +113,8 @@ public final class Tools {
             Items.COD, Items.COOKED_COD,
             Items.SALMON, Items.COOKED_SALMON,
             Items.POTATO, Items.BAKED_POTATO,
-            Items.RAW_IRON, Items.IRON_INGOT);
+            Items.RAW_IRON, Items.IRON_INGOT,
+            Items.SAND, Items.GLASS);
 
     public static Item smeltResult(ItemStack s) {
         return SMELT.get(s.getItem());
@@ -121,7 +122,7 @@ public final class Tools {
 
     public static boolean isRawMeat(ItemStack s) {
         Item r = SMELT.get(s.getItem());
-        return r != null && r != Items.IRON_INGOT && r != Items.BAKED_POTATO;
+        return r != null && isFood(s) && r != Items.BAKED_POTATO;
     }
 
     /** Số món nung được từ một món chất đốt (0 = không phải chất đốt mình dùng). */

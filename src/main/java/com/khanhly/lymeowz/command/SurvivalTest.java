@@ -96,6 +96,16 @@ public final class SurvivalTest {
         BlockPos hill = center.offset(-12, 0, 0);
         for (int dx = -4; dx < 5; dx++) for (int dz = -5; dz <= 5; dz++) for (int dy = 0; dy < 3; dy++)
             ow.setBlockAndUpdate(hill.offset(dx, dy, dz), Blocks.STONE.defaultBlockState());
+        // Bãi cát nhỏ và mấy bông hoa (để làm cửa sổ kính, vườn hoa).
+        for (int dx = 0; dx < 3; dx++) for (int dz = 0; dz < 3; dz++) {
+            BlockPos s = center.offset(10 + dx, -1, 14 + dz);
+            ow.setBlockAndUpdate(s, Blocks.SAND.defaultBlockState());
+        }
+        for (int i = 0; i < 14; i++) {
+            BlockPos f = center.offset(-14 + (i % 7) * 2, 0, -14 - (i / 7) * 2);
+            ow.setBlockAndUpdate(f.below(), Blocks.GRASS_BLOCK.defaultBlockState());
+            ow.setBlockAndUpdate(f, (i % 2 == 0 ? Blocks.POPPY : Blocks.DANDELION).defaultBlockState());
+        }
         // Cỏ để nhặt hạt giống.
         for (int i = 0; i < 80; i++) {
             BlockPos g = center.offset(ow.getRandom().nextIntBetweenInclusive(-18, 18), 0, ow.getRandom().nextIntBetweenInclusive(-18, 18));
@@ -194,6 +204,8 @@ public final class SurvivalTest {
         mark("đặt giường", com.khanhly.lymeowz.survival.Roadmap.has(ly, "bed"));
         if (ly.isSleeping()) slept = true;
         mark("ngủ trên giường", slept);
+        mark("viết nhật ký", !ly.mind().data().diary.isEmpty());
+        mark("sửa nhà", ly.data() != null && ly.data().structures.keySet().stream().anyMatch(k -> k.startsWith("deco:")));
         if (ly.getHunger() > lastHunger) ate = true;
         lastHunger = ly.getHunger();
         mark("tự ăn khi đói", ate);
@@ -237,7 +249,7 @@ public final class SurvivalTest {
             owner.snapTo(ly.getX() + 2, ly.getY(), ly.getZ());
         }
         if (ticks == 6400) owner.snapTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5);
-        boolean allDone = milestones.size() >= 20;
+        boolean allDone = milestones.size() >= 22;
         if (allDone && !ly.survival.busy() && ticks % 100 == 0) finish("xong mọi mốc");
         else if (ticks >= MAX_TICKS) finish("hết giờ");
     }
@@ -254,7 +266,7 @@ public final class SurvivalTest {
         server.tickRateManager().stopSprinting();
         LyMeowzEntity ly = ow.getEntity(lyId) instanceof LyMeowzEntity e ? e : null;
         String[] all = {"có gỗ", "cuốc gỗ", "rìu gỗ", "có đá cuội", "cuốc đá", "rìu đá", "kiếm đá", "lò nung", "than",
-                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "xây nhà", "làm ruộng", "làm chuồng", "đặt giường", "ngủ trên giường"};
+                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "xây nhà", "làm ruộng", "làm chuồng", "đặt giường", "ngủ trên giường", "viết nhật ký"};
         int ok = 0;
         StringBuilder missing = new StringBuilder();
         for (String m : all) if (milestones.containsKey(m)) ok++; else missing.append(" ").append(m);

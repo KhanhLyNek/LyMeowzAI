@@ -26,7 +26,7 @@ import java.util.UUID;
  * và một chút học tăng cường (việc nào ở đâu hay thành công). Không cần mạng hay mô hình ngôn ngữ.
  */
 public class Mind {
-    public enum PlaceKind { HOME, TREES, STONE, ORE, ANIMALS, DANGER, WATER, VIEW, CAVE, FLOWERS }
+    public enum PlaceKind { HOME, TREES, STONE, ORE, ANIMALS, DANGER, WATER, VIEW, CAVE, FLOWERS, LAVA }
 
     public enum Event {
         GIFT, FED, PRAISED, INSULTED, HIT_BY_PLAYER, HURT_BY_MOB, KILLED_MOB, FAINTED, FOUND_PLACE,

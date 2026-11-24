@@ -67,8 +67,11 @@ public final class CompanionStore {
         @Nullable public MindData mind;
         /** Những thứ cô ấy đã xây (nhà, ruộng, chuồng, rương...) – để quay lại dùng. */
         public Map<String, Spot> structures = new HashMap<>();
-        /** Giai đoạn trong lộ trình sinh tồn. */
-        public int stage;
+        /** Giai đoạn trong lộ trình sinh tồn, và từ lúc nào (game time). */
+        public int stage = -1;
+        public long stageSince;
+        /** Các giai đoạn đã tạm bỏ qua vì kẹt quá lâu (vẫn làm tiếp khi có điều kiện). */
+        public Set<String> skipped = new HashSet<>();
     }
 
     private static final class FileFormat {
@@ -101,6 +104,7 @@ public final class CompanionStore {
         for (Data d : data.companions.values()) {
             if (d.history == null) d.history = new ArrayList<>();
             if (d.structures == null) d.structures = new HashMap<>();
+            if (d.skipped == null) d.skipped = new HashSet<>();
         }
         dirty = false;
     }

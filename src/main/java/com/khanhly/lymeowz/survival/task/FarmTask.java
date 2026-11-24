@@ -130,7 +130,7 @@ public class FarmTask extends Task {
         BlockPos c = ly.blockPosition();
         BlockPos best = null;
         double bd = 1e9;
-        for (BlockPos p : BlockPos.betweenClosed(c.offset(-12, -3, -12), c.offset(12, 3, 12))) {
+        for (BlockPos p : BlockPos.betweenClosed(c.offset(-20, -3, -20), c.offset(20, 3, 20))) {
             if (!isGrass(level.getBlockState(p)) || ly.isProtected(p)) continue;
             double d = p.distSqr(c);
             if (d < bd) { bd = d; best = p.immutable(); }

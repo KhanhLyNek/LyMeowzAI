@@ -179,6 +179,7 @@ public class Survival {
         if (!all.has(Items.SHEARS) && Roadmap.has(ly, "pen")) wish.add(Items.SHEARS);
         if (axe < 3) wish.add(Items.IRON_AXE);
         if (pick < 4) wish.add(Items.DIAMOND_PICKAXE);
+        if (stage == Roadmap.Stage.NETHER && !all.has(Items.FLINT_AND_STEEL)) wish.add(Items.FLINT_AND_STEEL);
         if (sword < 4) wish.add(Items.DIAMOND_SWORD);
         for (Item it : wish) if (CraftTask.canMake(ly, level, it)) return it;
         return null;

@@ -249,7 +249,10 @@ public class StairMineTask extends Task {
     /** Có nham thạch ngay chỗ sắp đào hoặc sát bên không. */
     private boolean dangerAhead(ServerLevel level, BlockPos next) {
         for (BlockPos p : BlockPos.betweenClosed(next.offset(-1, -1, -1), next.offset(1, 3, 1))) {
-            if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) return true;
+            if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) {
+                ly.mind().remember(com.khanhly.lymeowz.mind.Mind.PlaceKind.LAVA, p.immutable(), 1); // nhớ chỗ có nham thạch (làm obsidian)
+                return true;
+            }
         }
         return false;
     }

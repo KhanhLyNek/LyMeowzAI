@@ -197,7 +197,8 @@ public class Bond {
             if (aff < 21) { offerTrade(level, p, r, now); continue; }                   // 2
 
             // Từ quen biết trở lên.
-            if (!night && r.greetDay != d && (t > 23200 || t < 1600) && dist < 24) { goodMorning(level, p, r, d); continue; } // 3
+            long morning = (level.getOverworldClockTime() + 1000) / DAY; // bình minh tính vào ngày mới
+            if (!night && r.greetDay != morning && (t > 23200 || t < 1600) && dist < 24) { goodMorning(level, p, r, morning); continue; } // 3
             if (sad) { cheerUp(p, dist); continue; }                                     // 9
             if (p.getFoodData().getFoodLevel() <= 6 && dist < 16 && now - r.lastFood > 5 * MIN) { shareFood(level, p, r, now); continue; } // 5, 6
             if (aff < 61 && r.quest == null && !night && now - r.lastFavor > DAY && chance(0.004f * sociable())) { askFavor(level, p, r, now); continue; } // 4
@@ -210,6 +211,8 @@ public class Bond {
                     if (inviteCave(level, p, r, now)) continue;                               // 8
                 }
             }
+            if (aff >= 41 && !night && ly.request() == null && ly.structure("portal") != null && now - r.lastNether > 2 * DAY && dist < 24
+                    && chance(0.02f * (0.5f + ly.mind().p().brave))) { inviteNether(p, r, now); continue; }      // cổng Nether
             if (aff >= 61 && night && now - r.lastStory > 4 * MIN && dist < 8 && campfireNear(level)) { fireStory(p, r, now); continue; } // 13
             if (aff >= 81) {
                 protect(p);                                                               // 15
@@ -509,6 +512,19 @@ public class Bond {
         }
     }
 
+    // ------------------------------------------------------------------ cổng Nether
+
+    private void inviteNether(ServerPlayer p, MindData.Relation r, long now) {
+        r.lastNether = now;
+        Pending pd = new Pending();
+        pd.type = "NETHER";
+        pd.until = now + MIN;
+        pending.put(p.getUUID(), pd);
+        Speech.Voice v = voice(p);
+        say(p, v.pick("Cổng Nether của " + v.self + " xong rồi đó! " + cap(v.you) + " đi cùng " + v.self + " không?",
+                cap(v.self) + " muốn xem bên kia cổng có gì... đi chung nha?"));
+    }
+
     // ------------------------------------------------------------------ 9. ngày buồn
 
     private void cheerUp(ServerPlayer p, double dist) {
@@ -525,7 +541,7 @@ public class Bond {
         ly.mind().bond(p, 3, false);
         Speech.Voice v = voice(p);
         say(p, v.pick("Cảm ơn " + v.you + "... " + v.self + " thấy đỡ hơn rồi", "...Có " + v.you + " ngồi đây, " + v.self + " vui hơn rồi") + ".");
-        ly.hearts();
+        ly.express(LyMeowzEntity.Expr.LOVE);
     }
 
     // ------------------------------------------------------------------ 10. an ủi khi người chơi chết
@@ -829,6 +845,7 @@ public class Bond {
         MindData.Relation r = rel(p);
         long now = ly.level().getGameTime();
         if (r.sulkUntil < now) say(p, voice(p).pick("Hừ!", "...Đau đó.", "Cậu làm gì vậy hả!"));
+        ly.express(LyMeowzEntity.Expr.ANGRY);
         r.sulkUntil = now + 6 * MIN;
         checkLeave(p, r);
     }
@@ -938,7 +955,7 @@ public class Bond {
             ly.mind().gift(p, 6);
             ly.mind().bond(p, 4, false);
             say(p, v.pick("C-cái này... sao " + v.you + " biết " + v.self + " thích nó?!", "Oa! Đúng món " + v.self + " thích nhất luôn!", "Mugyu~! " + cap(v.self) + " thích cái này lắm đó!"));
-            ly.hearts();
+            ly.express(LyMeowzEntity.Expr.LOVE);
             return true;
         }
         return false;
@@ -978,6 +995,10 @@ public class Bond {
                     say(p, "Theo " + v.self + " nè! Nhớ mang đuốc nha" + v.ending());
                 }
                 case "CAMP" -> { startCamp(p, pd.at); say(p, "Thật hả?! Vậy... đi theo " + v.self + " nha."); }
+                case "NETHER" -> {
+                    ly.setRequest("FOLLOW", p, 20 * MIN, null);
+                    say(p, v.pick("Đi thôi! Cẩn thận nham thạch nha", cap(v.you) + " vào trước đi, " + v.self + " theo ngay") + v.ending());
+                }
                 default -> {}
             }
             return true;
@@ -1078,6 +1099,8 @@ public class Bond {
 
     private void turnAway(ServerPlayer p) {
         if (p.distanceTo(ly) > 10) return;
+        if (ly.tickCount % 100 < 20 && ly.level() instanceof ServerLevel sl) // phụng phịu
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ANGRY_VILLAGER, ly.getX(), ly.getY() + 2.2, ly.getZ(), 1, 0.2, 0.1, 0.2, 0.0);
         Vec3 away = ly.position().subtract(p.position()).normalize().scale(4).add(ly.getEyePosition());
         ly.getLookControl().setLookAt(away.x, away.y, away.z, 30f, 30f);
     }

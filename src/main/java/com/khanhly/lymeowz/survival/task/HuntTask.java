@@ -53,12 +53,17 @@ public class HuntTask extends Task {
     }
 
     public static Animal find(LyMeowzEntity ly, ServerLevel level, int radius) {
+        return find(ly, level, radius, false);
+    }
+
+    /** {@code desperate}: sắp chết đói – săn cả thú trong chuồng, chỉ chừa lại 1 con mỗi loài. */
+    public static Animal find(LyMeowzEntity ly, ServerLevel level, int radius, boolean desperate) {
         AABB box = ly.getBoundingBox().inflate(radius, 6, radius);
         List<Animal> all = level.getEntitiesOfClass(Animal.class, box, a -> a.isAlive() && GAME.contains(a.getType()));
         return all.stream()
                 .filter(a -> !a.isBaby())
-                .filter(a -> all.stream().filter(o -> o.getType() == a.getType()).count() >= 3) // chừa lại ≥ 2 con
-                .filter(a -> !ly.isProtected(a.blockPosition()))                               // không săn vật nuôi trong nhà
+                .filter(a -> all.stream().filter(o -> o.getType() == a.getType()).count() >= (desperate ? 2 : 3)) // chừa lại giống
+                .filter(a -> desperate || !ly.isProtected(a.blockPosition()))                  // không săn vật nuôi trong nhà
                 .min(Comparator.comparingDouble(a -> a.distanceToSqr(ly)))
                 .orElse(null);
     }

@@ -287,10 +287,75 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     // ------------------------------------------------------------------ nói
 
-    /** Tự ghép câu theo ý muốn nói + cảm xúc + tính cách rồi nói ra. */
+    /** Tự ghép câu theo ý muốn nói + cảm xúc + tính cách rồi nói ra (kèm biểu cảm bằng hành động). */
     public void speak(Speech.Act act, Speech.Ctx ctx) {
         String line = Speech.build(this, act, ctx);
         if (!line.isEmpty()) sayRaw(line, ctx.listener instanceof ServerPlayer sp ? sp : null);
+        Expr e = switch (act) {
+            case PRAISED, SHY, NAMED -> Expr.SHY;
+            case GIFT_THANKS, SAVED_THANKS, MET_AT_SPOT, WELCOME_BACK -> Expr.HAPPY;
+            case INSULTED, REFUSE, HURT_BY_OWNER, NOT_CLOSE -> Expr.ANGRY;
+            case CONFUSED, STRANGER -> Expr.CONFUSED;
+            case FAINT, HUNGRY -> Expr.SAD;
+            default -> null;
+        };
+        if (e != null) express(e);
+    }
+
+    // ------------------------------------------------------------------ biểu cảm
+
+    /** Cảm xúc thể hiện bằng hành động (cô ấy ít nói nên "nói" bằng cử chỉ). */
+    public enum Expr { HAPPY, LOVE, SHY, ANGRY, SAD, CONFUSED }
+
+    private int exprTicks;
+    @Nullable private Expr expr;
+
+    public void express(Expr e) {
+        if (!(level() instanceof ServerLevel sl) || isSleeping()) return;
+        expr = e;
+        exprTicks = 30;
+        double hx = getX(), hy = getY() + getBbHeight() + 0.25, hz = getZ();
+        ServerPlayer near = nearestPlayer(sl, 10);
+        switch (e) {
+            case HAPPY -> {
+                if (onGround()) getJumpControl().jump();           // nhảy cẫng lên
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.NOTE, hx, hy, hz, 3, 0.4, 0.2, 0.4, 1.0);
+            }
+            case LOVE -> {
+                swingArm();
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.HEART, hx, hy, hz, 5, 0.4, 0.3, 0.4, 0.0);
+            }
+            case SHY -> {
+                setPose(Pose.CROUCHING);                           // co người lại
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.SPLASH, hx + 0.3, hy - 0.3, hz, 6, 0.1, 0.1, 0.1, 0.0); // giọt mồ hôi
+            }
+            case ANGRY -> sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ANGRY_VILLAGER, hx, hy, hz, 3, 0.3, 0.2, 0.3, 0.0);
+            case SAD -> {
+                setPose(Pose.CROUCHING);
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FALLING_WATER, hx, getEyeY(), hz, 4, 0.2, 0.05, 0.2, 0.0); // nước mắt
+                sl.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, hx, hy + 0.3, hz, 6, 0.3, 0.05, 0.3, 0.0);       // đám mây đen
+            }
+            case CONFUSED -> sl.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, hx, hy, hz, 3, 0.2, 0.1, 0.2, 0.01);
+        }
+        if (near != null && (e == Expr.SHY || e == Expr.ANGRY)) {
+            // Ngại thì quay mặt đi, giận thì quay lưng.
+            Vec3 away = position().subtract(near.position()).normalize().scale(3).add(getEyePosition());
+            getLookControl().setLookAt(away.x, away.y, away.z, 40f, 40f);
+        } else if (near != null && e != Expr.SAD) getLookControl().setLookAt(near, 30f, 30f);
+    }
+
+    private void tickExpression(ServerLevel level) {
+        if (exprTicks > 0) {
+            exprTicks--;
+            if (expr == Expr.CONFUSED && exprTicks % 8 == 0)   // nghiêng đầu nhìn quanh
+                getLookControl().setLookAt(getX() + getRandom().nextGaussian() * 3, getEyeY() + 0.5, getZ() + getRandom().nextGaussian() * 3, 30f, 30f);
+            if (exprTicks == 0 && getPose() == Pose.CROUCHING && !"buồn".equals(survival.currentName())) setPose(Pose.STANDING);
+            return;
+        }
+        if (tickCount % 200 != 0) return;
+        MindData m = mind().data();
+        if (bond.isSad() && getRandom().nextInt(2) == 0) express(Expr.SAD);
+        else if (m.joy > 85 && !survival.busy() && getRandom().nextInt(4) == 0) express(Expr.HAPPY);
     }
 
     public void speak(Speech.Act act) {
@@ -353,6 +418,7 @@ public class LyMeowzEntity extends LyMeowzBase {
                     isSleeping() ? "ngủ" : survival.currentName());
             noticePlayers(level);
             if (!isSleeping()) bond.tick(level);
+            com.khanhly.lymeowz.mind.Diary.tick(this, level);
         }
         LivingEntity tgt = getTarget();
         if (lastFightTarget != null && !lastFightTarget.isAlive() && lastFightTarget instanceof Enemy)
@@ -361,6 +427,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (tgt != null && tgt.isAlive() && tickCount % 10 == 0) holdBestWeapon();
         if (isSprinting() && getNavigation().isDone()) setSprinting(false);
         if (greetTicks > 0) tickGreet();
+        else tickExpression(level);
 
         if (isSleeping()) { tickSleeping(level); return; }
         if (dismantling) {
@@ -750,6 +817,7 @@ public class LyMeowzEntity extends LyMeowzBase {
             mind().event(Mind.Event.GIFT, player, "hoa", null);
             mind().gift(player, 3);
             speak(Speech.Act.PRAISED, Speech.Ctx.of().to(player));
+            express(Expr.LOVE);
             useOne(stack, player);
             hearts();
             return InteractionResult.SUCCESS;
@@ -802,6 +870,7 @@ public class LyMeowzEntity extends LyMeowzBase {
             com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     (bị thương {} bởi {} ở {}, đang {})", amount, source.getMsgId(), blockPosition().toShortString(), survival.currentName());
         Entity attacker = source.getEntity();
         if (attacker instanceof Player p) {
+            express(Expr.ANGRY);
             mind().event(Mind.Event.HIT_BY_PLAYER, p, null, blockPosition());
             bond.onHit(p);
             CompanionStore.Request r = request();

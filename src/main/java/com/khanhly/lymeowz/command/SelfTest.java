@@ -158,6 +158,15 @@ public final class SelfTest {
             c.check("nhớ tên được đặt", e != null && "Mimi".equals(e.displayName()) && e.data() != null && "Mimi".equals(e.data().name),
                     e == null ? "null" : String.valueOf(e.displayName()));
         }));
+        steps.add(new Step(0, "nhật ký + biểu cảm", c -> {
+            LyMeowzEntity e = c.ly();
+            if (e == null) return;
+            String page = com.khanhly.lymeowz.mind.Diary.compose(e, ow, e.mind().data(), 0);
+            var book = com.khanhly.lymeowz.mind.Diary.book(e, e.mind().data());
+            c.check("viết nhật ký", page.startsWith("Ngày 1") && page.length() > 20 && book.is(Items.WRITTEN_BOOK), page.replace("\n", " "));
+            for (LyMeowzEntity.Expr x : LyMeowzEntity.Expr.values()) e.express(x);
+            c.check("biểu cảm", true, "");
+        }));
         steps.add(new Step(5, "ngất khi kiệt sức", c -> {
             LyMeowzEntity e = c.ly();
             if (e == null) { c.check("ngất", false, "null"); return; }

@@ -43,9 +43,17 @@ public class HouseTask extends Task {
     private int phase;
     private int wait;
 
+    /** true: đây là phòng xây thêm cạnh nhà cũ (dùng chung một bức tường). */
+    private final boolean extension;
+
     public HouseTask(LyMeowzEntity ly, BlockPos corner) {
+        this(ly, corner, false);
+    }
+
+    public HouseTask(LyMeowzEntity ly, BlockPos corner, boolean extension) {
         super(ly);
         this.corner = corner.immutable();
+        this.extension = extension;
         this.timeout = 20 * 60 * 8;
     }
 
@@ -70,7 +78,7 @@ public class HouseTask extends Task {
     @Override
     public void start(ServerLevel level) {
         CompanionStore.Data d = ly.data();
-        if (d != null) {
+        if (d != null && !extension) {
             d.structures.put("plan:house", new CompanionStore.Spot(Compat.dimId(level.dimension()), corner.getX(), corner.getY(), corner.getZ()));
             CompanionStore.markDirty();
         }
@@ -148,7 +156,14 @@ public class HouseTask extends Task {
             wait = 8;
             return true;
         }
-        if (level.getBlockState(table(corner)).isAir() && (ly.inv().has(Items.CRAFTING_TABLE) || makeOne(Items.CRAFTING_TABLE))) {
+        if (extension && level.getBlockState(table(corner)).isAir() && ly.inv().has(Items.FURNACE)) {
+            ly.inv().consume(Items.FURNACE, 1);
+            ly.placeBlock(level, table(corner), Blocks.FURNACE.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.AbstractFurnaceBlock.FACING, Direction.WEST));
+            wait = 8;
+            return true;
+        }
+        if (!extension && level.getBlockState(table(corner)).isAir() && (ly.inv().has(Items.CRAFTING_TABLE) || makeOne(Items.CRAFTING_TABLE))) {
             ly.inv().consume(Items.CRAFTING_TABLE, 1);
             ly.placeBlock(level, table(corner), Blocks.CRAFTING_TABLE.defaultBlockState());
             wait = 8;
@@ -178,6 +193,15 @@ public class HouseTask extends Task {
         CompanionStore.Data d = ly.data();
         if (d == null) return;
         String dim = Compat.dimId(level.dimension());
+        if (extension) {
+            d.structures.put("room2", new CompanionStore.Spot(dim, corner.getX(), corner.getY(), corner.getZ()));
+            if (level.getBlockState(chest(corner)).is(Blocks.CHEST)) {
+                BlockPos c = chest(corner);
+                d.structures.put("chest2", new CompanionStore.Spot(dim, c.getX(), c.getY(), c.getZ()));
+            }
+            CompanionStore.markDirty();
+            return;
+        }
         d.structures.remove("plan:house");
         d.structures.put("house", new CompanionStore.Spot(dim, corner.getX(), corner.getY(), corner.getZ()));
         BlockPos in = inside(corner);

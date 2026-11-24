@@ -141,6 +141,12 @@ public final class Understanding {
             }
             return cap(me) + " không nhớ chuyện gì đặc biệt" + v.ending();
         }
+        if (has(n, "nhat ky", "diary")) {
+            String page = com.khanhly.lymeowz.mind.Diary.lastPage(m);
+            if (page == null) return cap(me) + " chưa viết trang nào hết" + v.ending();
+            if (v.affinity < 41) return "Không cho xem đâu! Mugyu~";
+            return v.pick("Hôm qua " + me + " viết: ", "Trang mới nhất nè: ") + page;
+        }
         if (has(n, "ke hoach", "lo trinh", "muc tieu", "dinh lam gi", "se lam gi", "tiep theo", "plan")) {
             return com.khanhly.lymeowz.survival.Roadmap.describe(ly, v.affinity >= 15);
         }

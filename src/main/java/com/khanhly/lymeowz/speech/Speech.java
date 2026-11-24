@@ -316,7 +316,7 @@ public final class Speech {
             case ANIMALS -> v.pick(", có đồ ăn rồi", "");
             case WATER -> v.pick(", mát ghê", "");
             case VIEW -> v.pick(", ngắm cảnh đẹp lắm", "");
-            case CAVE, FLOWERS -> "";
+            case CAVE, FLOWERS, LAVA -> "";
             default -> "";
         };
         return s + plan;
@@ -334,6 +334,7 @@ public final class Speech {
             case VIEW -> v.pick("chỗ ngắm cảnh đẹp", "một đỉnh đồi cao");
             case CAVE -> v.pick("một cái hang", "cửa hang tối om");
             case FLOWERS -> v.pick("một cánh đồng hoa", "nhiều hoa lắm");
+            case LAVA -> v.pick("một vũng nham thạch", "nham thạch nóng rực");
             case HOME -> "nhà";
         };
     }

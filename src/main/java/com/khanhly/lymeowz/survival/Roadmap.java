@@ -23,8 +23,8 @@ public final class Roadmap {
         BED("làm giường", "kiếm 3 cục len làm giường để tối ngủ trong nhà"),
         IRON("đồ sắt", "đào mỏ xuống tầng sắt, nung sắt làm cuốc, kiếm, giáp, khiên, xô"),
         DIAMOND("kim cương", "đào xuống tận đáy tìm kim cương làm cuốc với kiếm kim cương"),
-        NETHER("Nether", "xây cổng Nether (cô ấy chưa biết làm phần này)"),
-        END("rồng Ender", "tìm thành trì, vào End đánh rồng (cô ấy chưa biết làm phần này)");
+        NETHER("cổng Nether", "múc nước đổ lên nham thạch làm obsidian, đào sỏi lấy đá lửa làm bật lửa, dựng và thắp cổng Nether"),
+        END("Nether và End", "rủ bạn bè cùng vào Nether, rồi cùng đi End đánh rồng (đi theo bạn, đánh quái cùng bạn)");
 
         public final String title, detail;
         Stage(String title, String detail) { this.title = title; this.detail = detail; }
@@ -35,7 +35,64 @@ public final class Roadmap {
         return d != null && d.structures.containsKey(structure);
     }
 
+    /** Giai đoạn hiện tại; kẹt ở một giai đoạn (ruộng, chuồng, giường) quá một ngày thì tạm bỏ qua, làm tiếp bước sau. */
     public static Stage current(LyMeowzEntity ly) {
+        Stage s = raw(ly);
+        var d = ly.data();
+        if (d == null) return s;
+        long now = ly.level().getGameTime();
+        for (int guard = 0; guard < 3 && d.skipped.contains(s.name()); guard++) s = rawAfter(ly, s);
+        if (d.stage != s.ordinal()) { d.stage = s.ordinal(); d.stageSince = now; }
+        else if ((s == Stage.FARM || s == Stage.PEN || s == Stage.BED) && now - d.stageSince > 24000) {
+            d.skipped.add(s.name());
+            com.khanhly.lymeowz.world.CompanionStore.markDirty();
+        }
+        return s;
+    }
+
+    private static Stage rawAfter(LyMeowzEntity ly, Stage skipped) {
+        var d = ly.data();
+        Stage s = raw(ly);
+        Stage[] all = Stage.values();
+        for (int i = skipped.ordinal() + 1; i < all.length; i++) {
+            Stage cand = all[i];
+            if (d != null && d.skipped.contains(cand.name())) continue;
+            if (cand.ordinal() > s.ordinal() && isDone(ly, cand)) continue;
+            return firstFrom(ly, cand);
+        }
+        return s;
+    }
+
+    /** Bước đầu tiên chưa xong tính từ {@code from}. */
+    private static Stage firstFrom(LyMeowzEntity ly, Stage from) {
+        Stage[] all = Stage.values();
+        var d = ly.data();
+        for (int i = from.ordinal(); i < all.length; i++) {
+            if (d != null && d.skipped.contains(all[i].name()) && !isDone(ly, all[i])) continue;
+            if (!isDone(ly, all[i])) return all[i];
+        }
+        return Stage.END;
+    }
+
+    private static boolean isDone(LyMeowzEntity ly, Stage s) {
+        LyInventory all = ly.inventoryWithHand();
+        int pick = Survival.bestTier(all, Tools.Kind.PICKAXE);
+        return switch (s) {
+            case WOOD -> pick >= 1;
+            case STONE -> pick >= 2 && Survival.bestTier(all, Tools.Kind.SWORD) >= 2;
+            case SHELTER -> has(ly, "house");
+            case FARM -> has(ly, "farm");
+            case PEN -> has(ly, "pen");
+            case BED -> has(ly, "bed");
+            case IRON -> raw(ly).ordinal() > Stage.IRON.ordinal() || (pick >= 3 && Survival.bestTier(all, Tools.Kind.SWORD) >= 3
+                    && Tools.armorRank(ly.getItemBySlot(EquipmentSlot.CHEST)) >= 3);
+            case DIAMOND -> pick >= 4;
+            case NETHER -> has(ly, "portal");
+            case END -> false;
+        };
+    }
+
+    private static Stage raw(LyMeowzEntity ly) {
         LyInventory all = ly.inventoryWithHand();
         int pick = Survival.bestTier(all, Tools.Kind.PICKAXE);
         int sword = Survival.bestTier(all, Tools.Kind.SWORD);
@@ -49,7 +106,8 @@ public final class Roadmap {
         boolean shield = ly.getOffhandItem().is(Items.SHIELD) || all.has(Items.SHIELD);
         if (pick < 3 || sword < 3 || !chest || !shield) return Stage.IRON;
         if (pick < 4) return Stage.DIAMOND;
-        return Stage.NETHER;
+        if (!has(ly, "portal")) return Stage.NETHER;
+        return Stage.END;
     }
 
     /** Trả lời câu "kế hoạch của cậu là gì?". */

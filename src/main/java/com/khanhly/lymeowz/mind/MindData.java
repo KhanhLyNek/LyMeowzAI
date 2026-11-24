@@ -12,6 +12,12 @@ import java.util.Set;
  */
 public class MindData {
     public Personality personality;
+    /** Nhật ký: mỗi trang là một ngày. */
+    public List<String> diary = new ArrayList<>();
+    public long diaryDay = -1;
+    /** lifeTicks lúc bắt đầu ngày đang ghi nhật ký. */
+    public long diaryMark;
+
     /** Món cô ấy thích nhất (mỗi thế giới một món), id vật phẩm. */
     public String favorite;
 
@@ -73,7 +79,7 @@ public class MindData {
         public long sulkUntil;
         public boolean promised, campRewarded, safeNight, left;
         public long lastCampAsk = -1000000, lastSurprise = -1000000, lastStory = -1000000, lastFood = -1000000,
-                lastTrade = -1000000, lastFavor = -1000000, lastExplore = -1000000, lastBuildHelp = -1000000, lastCave = -1000000;
+                lastTrade = -1000000, lastFavor = -1000000, lastExplore = -1000000, lastBuildHelp = -1000000, lastCave = -1000000, lastNether = -1000000;
         /** Số tấm biển "nhớ nhung" đã để lại trong lần vắng mặt này. */
         public int missSigns;
     }

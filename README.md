@@ -1,4 +1,4 @@
-# LyMeowz AI 🌸 — bản 4.0 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 5.0 (Minecraft 26.3)
 
 Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
 Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
@@ -41,12 +41,49 @@ Cô ấy tính giai đoạn của mình từ những gì đang có, nên nếu m
 | 6 | Làm giường | kiếm 3 len (cắt lông cừu hoặc săn cừu), chế giường, đặt vào nhà; từ đó tối về ngủ |
 | 7 | Đồ sắt | đào mỏ tầng sắt, nung, làm cuốc, kiếm, khiên, giáp sắt, xô, kéo |
 | 8 | Kim cương | đào xuống đáy tìm kim cương, làm cuốc và kiếm kim cương, nâng giáp |
-| 9 | Nether | *chưa làm* |
-| 10 | Rồng Ender | *chưa làm* |
+| 9 | Cổng Nether | múc nước đổ lên nham thạch cho nguội thành obsidian rồi đào bằng cuốc kim cương, đào sỏi lấy đá lửa làm bật lửa, dựng khung 4×5 cạnh nhà và thắp cổng |
+| 10 | Nether và End | rủ bạn bè cùng qua cổng; cô ấy đi theo, đánh quái cùng bạn (tự khám phá Nether và tự đánh rồng thì *chưa làm*) |
 
 Túi gần đầy thì cô ấy về nhà mở rương cất đồ thừa, hết đồ ăn thì lấy ra. Mở rương nhà cô ấy ra xem, bạn sẽ thấy cô ấy
 **giàu hơn bạn tưởng**. Ban đêm, nếu có giường thì cô ấy về ngủ. Nếu chưa có giường thì cô ấy cắm trại tại chỗ, đốt lửa
 và xây một hộp đá quanh mình để trú, sáng ra thì đập đi lấy lại đá. Cô gái dũng cảm và chăm chỉ thì có khi thức làm đêm.
+
+## Nhà lớn dần theo thời gian
+
+Có giường rồi thì cô ấy bắt đầu sửa sang nhà, lần lượt từng việc, thiếu gì thì tự đi kiếm:
+
+1. **Đuốc quanh nhà** (tự làm từ than và que).
+2. **Vườn hoa** trước cửa: đi hái hoa quanh đó về trồng.
+3. **Cửa sổ kính** ở ba mặt tường: xúc cát, nung thành kính, đập tường lắp kính vào.
+4. **Phòng mới** xây sát phía đông, dùng chung tường, trổ cửa thông sang, trong phòng có lò nung và rương thứ hai.
+
+Đi ngang qua nhà cô ấy vài ngày một lần, bạn sẽ thấy nhà khác đi.
+
+## Nhật ký
+
+Cuối mỗi ngày, lúc chạng vạng hoặc khi đi ngủ, cô ấy viết một trang nhật ký: thời tiết, hôm nay làm gì, chế được gì,
+chuyện đáng nhớ (ai tặng quà, ai cứu cô ấy, bị quái đánh…), gặp ai, và cảm thấy thế nào. Cuốn **"Nhật ký"** nằm trong
+rương ở nhà cô ấy, mỗi ngày được thay bằng bản mới (tối đa 100 trang). Hỏi *"nhật ký viết gì?"* thì bạn bè được
+nghe trang mới nhất, người lạ thì bị từ chối.
+
+```
+Ngày 3
+
+Trời nắng đẹp. Tớ chặt cây, đào đá 4 lần, ra ruộng. Làm được cuốc sắt, khiên. LyTester tặng tớ hoa. Hôm nay gặp LyTester ♥. Vui ghê~
+```
+
+## Biểu cảm
+
+Cô ấy ít nói nên thể hiện cảm xúc bằng cử chỉ:
+
+| Cảm xúc | Cử chỉ |
+|---|---|
+| Vui | nhảy cẫng lên, nốt nhạc bay quanh đầu |
+| Thích (được tặng hoa, món yêu thích) | vung tay, trái tim |
+| Ngại (được khen, được đặt tên) | co người lại, quay mặt đi, giọt mồ hôi |
+| Giận (bị đánh, bị mắng, đang dỗi) | quay lưng, mặt cau có |
+| Buồn | ngồi thụp xuống, nước mắt, đám mây đen trên đầu |
+| Bối rối ("Mugyu~?") | nghiêng đầu nhìn quanh, làn khói nhỏ |
 
 ## Làm thân với cô ấy
 
@@ -149,7 +186,7 @@ skin như *3D Skin Layers*, *EMF/ETF* cũng nhận ra. Giáp cô ấy mặc cũn
 ## Cài đặt
 
 Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.4 trở lên,
-[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-4.0.0+26.3.jar` vào thư mục `mods/`.
+[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-5.0.0+26.3.jar` vào thư mục `mods/`.
 
 ## Cấu hình: `config/lymeowz.json`
 
@@ -170,21 +207,22 @@ Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.
 ## Build
 
 ```bash
-./gradlew build        # cần Java 25 → build/libs/lymeowzai-4.0.0+26.3.jar
+./gradlew build        # cần Java 25 → build/libs/lymeowzai-5.0.0+26.3.jar
 ```
 
 ## Mã nguồn
 
 ```
 entity/LyMeowzEntity     thân thể: sống độc lập, đêm ngủ / cắm trại, yêu cầu (đi theo, đợi, về nhà), tự vệ, túi đồ, tên
-mind/                    cảm xúc, trí nhớ, độ thân, học; Decider = Utility AI theo lộ trình
+mind/                    cảm xúc, trí nhớ, độ thân, học, nhật ký; Decider = Utility AI theo lộ trình
 speech/                  ghép câu, hiểu câu hỏi
 chat/Brain               nghe chat, phân quyền theo độ thân
 bond/Bond                19 sự kiện theo mức thân mật
 survival/Roadmap         lộ trình sinh tồn
 survival/BlockBreaker    phá block như người chơi (tầm với + tầm nhìn)
 survival/Builder, Camp   đặt block, cắm trại / hộp trú
-survival/task/           chặt cây, đào đá, đào mỏ cầu thang, săn, nung, chế, xây nhà, ruộng, chuồng, giường, rương, thư giãn...
+survival/task/           chặt cây, đào đá, đào mỏ cầu thang, săn, nung, chế, xây nhà, sửa nhà, ruộng, chuồng, giường, rương,
+                         thư giãn, gom đồ (hoa, cát, sỏi), làm obsidian, dựng cổng Nether...
 world/                   lưu dữ liệu, giữ cô ấy luôn có mặt trong thế giới
 ```
 
