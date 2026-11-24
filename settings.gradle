@@ -7,11 +7,3 @@ pluginManagement {
 }
 
 rootProject.name = 'lymeowzai'
-
-// Mỗi thư mục trong versions/ là một bản build cho một nhóm phiên bản Minecraft.
-file('versions').eachDir { dir ->
-    if (new File(dir, 'gradle.properties').exists()) {
-        include ":${dir.name}"
-        project(":${dir.name}").projectDir = dir
-    }
-}

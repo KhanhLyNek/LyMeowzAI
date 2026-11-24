@@ -125,6 +125,21 @@ public final class Lines {
             "Mình là %s nè~ Bạn đồng hành của cậu đó!",
     };
 
+    public static final String[] THANKS_GIFT = {
+            "Cho mình hả? Cảm ơn nha~ Mình cất vào túi rồi!",
+            "Mugyu~ cậu tốt với mình quá... mình giữ kỹ nhé~"
+    };
+    public static final String[] HUNGRY = {
+            "Mugyu~... đói quá... cậu có gì ăn không?",
+            "Bụng mình kêu rồi nè... Mugyu~"
+    };
+    public static final String[] GO_WOOD = {"Okie, mình đi chặt cây đây~", "Để mình lo gỗ cho!"};
+    public static final String[] GO_STONE = {"Đào đá thôi~ Cẩn thận hang tối nha!", "Mình đi kiếm đá đây~"};
+    public static final String[] GO_FOOD = {"Mình đi kiếm đồ ăn nhé~", "Đi săn thôi~"};
+    public static final String[] GO_WORK = {"Okie~ mình tự lo việc nhé!", "Để mình xem cần làm gì~"};
+    public static final String[] GIVE = {"Đây nè, cầm lấy~", "Mình đưa cậu hết đồ này nè~"};
+    public static final String[] GIVE_NOTHING = {"Mugyu~ mình chưa có gì để đưa cậu hết...", "Túi mình toàn đồ nghề thôi à~"};
+
     public static String pick(String[] lines, RandomSource random) {
         return lines[random.nextInt(lines.length)];
     }

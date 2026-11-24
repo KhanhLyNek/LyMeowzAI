@@ -39,11 +39,20 @@ public final class LyCommands {
                 .then(literal("info").executes(LyCommands::info))
                 .then(literal("say").then(argument("message", StringArgumentType.greedyString())
                         .executes(c -> act(c, (ly, p) -> ly.brain.hear(p, StringArgumentType.getString(c, "message")) ))))
+                .then(literal("inv").executes(c -> act(c, (ly, p) -> ly.openInventory(p))))
+                .then(literal("give").executes(c -> act(c, (ly, p) -> ly.say(ly.giveResourcesTo(p) > 0 ? com.khanhly.lymeowz.chat.Lines.GIVE : com.khanhly.lymeowz.chat.Lines.GIVE_NOTHING))))
                 .then(literal("dismiss").executes(c -> act(c, (ly, p) -> {
                     ly.say("Mugyu~... tạm biệt nha. Gọi /lymeowz summon nếu cậu nhớ mình nhé...");
                     ly.discard();
                 })))
-                .then(literal("selftest").requires(Compat::isOp).executes(c -> {
+                .then(literal("selftest").requires(Compat::isOp)
+                        .then(literal("survival").executes(c -> {
+                            var src = c.getSource();
+                            if (SurvivalTest.running()) return 0;
+                            SurvivalTest.start(src.getServer(), line -> src.sendSuccess(() -> Component.literal(line), false));
+                            return 1;
+                        }))
+                        .executes(c -> {
                     var src = c.getSource();
                     if (SelfTest.running()) return 0;
                     SelfTest.start(src.getServer(), line -> src.sendSuccess(() -> Component.literal(line), false));

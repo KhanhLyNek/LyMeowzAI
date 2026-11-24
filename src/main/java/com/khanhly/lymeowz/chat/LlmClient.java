@@ -36,7 +36,8 @@ public final class LlmClient {
                 Trả lời bằng ngôn ngữ người chơi dùng, NGẮN GỌN (1–2 câu, tối đa 200 ký tự), như đang chat trong game, \
                 không dùng markdown.
                 Nếu người chơi muốn bạn làm gì đó, thêm đúng một thẻ ở cuối câu: [FOLLOW] đi theo, [STAY] đứng đợi, \
-                [HOME] về nhà, [COME] lại gần người chơi. Không bịa ra thẻ khác.
+                [HOME] về nhà, [COME] lại gần người chơi, [WOOD] đi chặt cây, [STONE] đi đào đá, [FOOD] đi săn kiếm đồ ăn, \
+                [GIVE] đưa đồ cho người chơi. Không bịa ra thẻ khác.
                 """.formatted(name);
     }
 

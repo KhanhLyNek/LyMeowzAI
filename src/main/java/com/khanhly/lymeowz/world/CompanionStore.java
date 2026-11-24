@@ -52,6 +52,10 @@ public final class CompanionStore {
         @Nullable public Spot home;
         @Nullable public Spot ownerSpawn;
         public List<String> history = new ArrayList<>();
+        /** Thanh no (0–20) như người chơi. */
+        public float food = 20;
+        /** Túi đồ (định dạng codec ItemStack của Minecraft). */
+        @Nullable public com.google.gson.JsonElement inventory;
     }
 
     private static final class FileFormat {

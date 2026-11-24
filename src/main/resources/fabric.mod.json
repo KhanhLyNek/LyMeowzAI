@@ -16,9 +16,9 @@
     "client": ["com.khanhly.lymeowz.client.LyMeowzClient"]
   },
   "depends": {
-    "fabricloader": ">=${loader_min}",
-    "minecraft": "${mc_range}",
-    "java": ">=${java}",
+    "fabricloader": ">=0.18.4",
+    "minecraft": "26.3",
+    "java": ">=25",
     "fabric-api": "*"
   }
 }

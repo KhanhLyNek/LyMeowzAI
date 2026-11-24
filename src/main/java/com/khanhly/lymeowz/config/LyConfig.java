@@ -22,6 +22,10 @@ public class LyConfig {
     public String name = "LyMeowz";
     /** Bán kính (block) cô ấy được tự do đi chơi quanh người chơi. */
     public int followRadius = 100;
+    /** Khi người chơi đứng lại, cô ấy làm việc (chặt cây, đào đá, săn) trong bán kính này quanh người chơi. */
+    public int workRadius = 24;
+    /** Không chặt/đào/săn trong bán kính này quanh nhà và giường của người chơi. */
+    public int protectRadius = 16;
     /** Xa hơn khoảng này (hoặc khác chiều không gian) thì cô ấy dịch chuyển tới người chơi. */
     public int teleportDistance = 128;
     /** Bán kính chunk ticket cô ấy tự giữ load quanh mình (3 = vùng 1 chunk quanh cô ấy luôn được tick). */

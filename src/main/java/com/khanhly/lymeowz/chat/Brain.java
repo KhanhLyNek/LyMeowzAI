@@ -19,9 +19,9 @@ import java.util.regex.Pattern;
  * câu lạ thì hỏi mô hình ngôn ngữ nếu đã bật, còn không thì "Mugyu~?".
  */
 public class Brain {
-    public enum Intent { SET_HOME, HOME, COME, FOLLOW, STAY, LOVE, THANKS, HOW_ARE_YOU, WHO, GREET, UNKNOWN }
+    public enum Intent { SET_HOME, HOME, COME, FOLLOW, STAY, WOOD, STONE, FOOD, GIVE, INV, WORK, LOVE, THANKS, HOW_ARE_YOU, WHO, GREET, UNKNOWN }
 
-    private static final Pattern TAG = Pattern.compile("\\[(FOLLOW|STAY|HOME|COME)]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TAG = Pattern.compile("\\[(FOLLOW|STAY|HOME|COME|WOOD|STONE|FOOD|GIVE)]", Pattern.CASE_INSENSITIVE);
 
     private final LyMeowzEntity ly;
     private boolean waitingLlm;
@@ -49,6 +49,12 @@ public class Brain {
         if (has(n, "ve nha", "go home", "home", "di ve")) return Intent.HOME;
         if (has(n, "lai day", "den day", "toi day", "qua day", "come", "come here")) return Intent.COME;
         if (has(n, "di theo", "theo minh", "theo to", "theo anh", "theo em", "follow", "follow me", "di thoi", "di nao")) return Intent.FOLLOW;
+        if (has(n, "chat cay", "chat go", "lay go", "kiem go", "don cay", "chop", "wood", "get wood")) return Intent.WOOD;
+        if (has(n, "dao da", "lay da", "kiem da", "dao khoang", "dao quang", "kiem quang", "mine", "mining", "stone")) return Intent.STONE;
+        if (has(n, "di san", "san thit", "kiem do an", "tim do an", "kiem thit", "hunt", "food")) return Intent.FOOD;
+        if (has(n, "dua do", "dua cho", "dua het", "cho minh do", "cho to do", "give", "give me")) return Intent.GIVE;
+        if (has(n, "tui do", "co gi", "dang co gi", "inventory", "bag", "trong tui")) return Intent.INV;
+        if (has(n, "lam viec", "tu do", "tu lo", "work", "sinh ton")) return Intent.WORK;
         if (has(n, "dung yen", "dung day", "doi o day", "o day doi", "o yen", "stay", "wait", "doi to", "doi minh", "doi anh")) return Intent.STAY;
         if (has(n, "yeu", "love", "thich cau", "thich em", "thuong", "de thuong", "cute", "xinh", "dep", "kawaii",
                 "hon", "kiss", "om", "hug", "marry", "cuoi", "vo", "waifu", "beautiful", "pretty")) return Intent.LOVE;
@@ -81,6 +87,17 @@ public class Brain {
             case COME -> { come(player); reply(Lines.COME); }
             case FOLLOW -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); reply(Lines.FOLLOW); }
             case STAY -> { ly.setMode(LyMeowzEntity.Mode.STAY); reply(Lines.STAY); }
+            case WOOD -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.WOOD); reply(Lines.GO_WOOD); }
+            case STONE -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.STONE); reply(Lines.GO_STONE); }
+            case FOOD -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.FOOD); reply(Lines.GO_FOOD); }
+            case WORK -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.AUTO); reply(Lines.GO_WORK); }
+            case GIVE -> reply(ly.giveResourcesTo(player) > 0 ? Lines.GIVE : Lines.GIVE_NOTHING);
+            case INV -> {
+                String line = "Trong túi mình có: " + com.khanhly.lymeowz.survival.Survival.summary(ly.inventoryWithHand())
+                        + ". Đói: " + ly.getHunger() + "/20.";
+                ly.sayRaw(line);
+                remember("assistant: " + line);
+            }
             case LOVE -> { reply(Lines.EMBARRASSED); ly.hearts(); }
             case THANKS -> reply(Lines.THANKS);
             case HOW_ARE_YOU -> reply(Lines.HOW_ARE_YOU);
@@ -125,7 +142,8 @@ public class Brain {
         var server = ((ServerLevel) player.level()).getServer();
         String context = "Người chơi tên " + player.getName().getString()
                 + ", đang cách bạn " + (player.level() == ly.level() ? (int) player.distanceTo(ly) + " block" : "rất xa (khác thế giới)")
-                + ". Chế độ hiện tại: " + ly.getMode() + ". Trời đang " + (Compat.isNight(ly.level()) ? "tối" : "sáng") + ".";
+                + ". Chế độ hiện tại: " + ly.getMode() + ", đang " + ly.survival.currentName()
+                + ", đói " + ly.getHunger() + "/20, túi đồ: " + com.khanhly.lymeowz.survival.Survival.summary(ly.inventoryWithHand()) + ". Trời đang " + (Compat.isNight(ly.level()) ? "tối" : "sáng") + ".";
         LlmClient.chat(List.copyOf(history()), context).whenComplete((text, err) -> server.execute(() -> {
             waitingLlm = false;
             if (ly.isRemoved()) return;
@@ -141,6 +159,10 @@ public class Brain {
                     case "STAY" -> ly.setMode(LyMeowzEntity.Mode.STAY);
                     case "HOME" -> ly.setMode(LyMeowzEntity.Mode.HOME);
                     case "COME" -> { ServerPlayer o = ly.getOwner(); if (o != null) come(o); }
+                    case "WOOD" -> ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.WOOD);
+                    case "STONE" -> ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.STONE);
+                    case "FOOD" -> ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.FOOD);
+                    case "GIVE" -> { ServerPlayer o = ly.getOwner(); if (o != null) ly.giveResourcesTo(o); }
                 }
             }
             clean = TAG.matcher(clean).replaceAll("").trim();

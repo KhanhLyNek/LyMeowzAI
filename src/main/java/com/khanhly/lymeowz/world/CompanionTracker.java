@@ -92,6 +92,7 @@ public final class CompanionTracker {
 
     private static void tick(MinecraftServer server) {
         com.khanhly.lymeowz.command.SelfTest.tick(server);
+        com.khanhly.lymeowz.command.SurvivalTest.tick(server);
         // Tạo mới cho người chơi lần đầu vào thế giới (đợi 3 giây cho thế giới load xong).
         for (Iterator<Map.Entry<UUID, Integer>> it = PENDING_SPAWN.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<UUID, Integer> s = it.next();
