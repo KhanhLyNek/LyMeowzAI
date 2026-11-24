@@ -74,6 +74,10 @@ public class LyMeowzEntity extends LyMeowzBase {
     private Vec3 lastStuckCheck = Vec3.ZERO;
     private int stuckCount;
     private boolean searching;
+    private boolean searchAnnounced;
+    private boolean ownerWasOnline;
+    /** Vài giây sau khi chủ vào game: im lặng đi tìm (lời chào do tracker nói). */
+    private int ownerJoinGrace;
     private boolean travelingHome;
     private boolean arrivedHomeSaid;
     private boolean sleepHandled;
@@ -82,6 +86,7 @@ public class LyMeowzEntity extends LyMeowzBase {
     private int lastSpeakTick = -1000;
 
     public final Brain brain = new Brain(this);
+    private static final boolean DEBUG = Boolean.getBoolean("lymeowz.debug");
 
     public LyMeowzEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
@@ -240,12 +245,22 @@ public class LyMeowzEntity extends LyMeowzBase {
                 }
             }
             if (owner != null) rememberOwnerSpawn(owner);
-            // Tự giữ chunk khi đang theo người chơi hoặc đang trên đường về nhà.
+        }
+        // Tự giữ chunk khi đang theo người chơi hoặc đang trên đường về nhà.
+        // Gia hạn dày (mỗi 5 tick): ở 1.21.5–1.21.8 gia hạn thưa khiến chunk đôi khi bị hạ cấp
+        // ngay khi cô ấy vừa bước sang chunk mới.
+        if (this.tickCount % 5 == 0) {
             boolean keep = (owner != null && getMode() == Mode.FOLLOW) || travelingHome;
             if (keep) Compat.keepChunk(level, blockPosition(), cfg.chunkLoadRadius);
+            if (DEBUG && tickCount % 20 == 0) com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[debug] tick={} pos={} keep={} home={}",
+                    tickCount, blockPosition().toShortString(), keep, travelingHome);
         }
 
         if (d == null) return; // chưa có chủ: đứng chơi một mình
+
+        if (owner != null && !ownerWasOnline) ownerJoinGrace = 100;
+        ownerWasOnline = owner != null;
+        if (ownerJoinGrace > 0) ownerJoinGrace--;
 
         if (owner == null) { // chủ offline → về nhà đợi
             tickGoHome(level);
@@ -285,7 +300,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         // 1) Quá xa hoặc khác chiều → tự tìm người chơi bằng dịch chuyển.
         if (otherLevel || dist > cfg.teleportDistance) {
             if (!owner.isSpectator() && teleportToOwner(owner)) {
-                if (tickCount - lastSpeakTick > 200) say(Lines.FOUND);
+                if (ownerJoinGrace == 0 && tickCount - lastSpeakTick > 200) say(Lines.FOUND);
             }
             return;
         }
@@ -294,13 +309,20 @@ public class LyMeowzEntity extends LyMeowzBase {
 
         // 2) Ngoài bán kính tự do → chạy về phía người chơi.
         if (dist > cfg.followRadius) {
-            if (!searching) { searching = true; say(Lines.SEARCHING); }
+            if (!searching) {
+                searching = true;
+                searchAnnounced = ownerJoinGrace == 0;
+                if (searchAnnounced) say(Lines.SEARCHING);
+            }
             roamTarget = null;
             getNavigation().moveTo(owner, 1.35);
             if (checkStuck()) teleportToOwner(owner);
             return;
         }
-        if (searching && dist < 10) { searching = false; say(Lines.FOUND); }
+        if (searching && dist < 10) {
+            searching = false;
+            if (searchAnnounced) say(Lines.FOUND);
+        }
 
         // 3) Trong bán kính → tự do đi chơi.
         roamTimer--;
@@ -517,6 +539,8 @@ public class LyMeowzEntity extends LyMeowzBase {
         stuckCount = 0;
         resetFallDistance();
         Vec3 pos = Vec3.atBottomCenterOf(p);
+        // Giữ chunk ở điểm đến để cô ấy không bị lưu xuống đĩa ngay khi vừa tới (1.21.9+ không còn spawn chunks).
+        Compat.keepChunk(target, p, 2);
         if (target == level()) {
             teleportTo(pos.x, pos.y, pos.z);
         } else {
@@ -622,6 +646,7 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     @Override
     public void remove(RemovalReason reason) {
+        if (DEBUG) com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[debug] remove {} at {}", reason, blockPosition().toShortString());
         super.remove(reason);
         if (reason.shouldDestroy() && level() instanceof ServerLevel) {
             CompanionStore.Data d = CompanionStore.byCompanion(getUUID());

@@ -43,6 +43,12 @@ public final class LyCommands {
                     ly.say("Mugyu~... tạm biệt nha. Gọi /lymeowz summon nếu cậu nhớ mình nhé...");
                     ly.discard();
                 })))
+                .then(literal("selftest").requires(Compat::isOp).executes(c -> {
+                    var src = c.getSource();
+                    if (SelfTest.running()) return 0;
+                    SelfTest.start(src.getServer(), line -> src.sendSuccess(() -> Component.literal(line), false));
+                    return 1;
+                }))
                 .then(literal("reload").requires(Compat::isOp).executes(c -> {
                     LyConfig.load();
                     c.getSource().sendSuccess(() -> Component.literal("Đã tải lại config/lymeowz.json"), true);

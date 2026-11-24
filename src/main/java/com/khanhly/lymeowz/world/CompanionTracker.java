@@ -52,6 +52,9 @@ public final class CompanionTracker {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.player));
         ServerTickEvents.END_SERVER_TICK.register(CompanionTracker::tick);
         ServerEntityEvents.ENTITY_LOAD.register(CompanionTracker::onLoad);
+        if (Boolean.getBoolean("lymeowz.debug")) ServerEntityEvents.ENTITY_UNLOAD.register((e, l) -> {
+            if (e instanceof LyMeowzEntity) LyMeowzMod.LOGGER.info("[debug] UNLOAD {} removed={} reason={}", e.blockPosition().toShortString(), e.isRemoved(), e.getRemovalReason());
+        });
     }
 
     /** Tìm LyMeowz (đang được load) của người chơi. */
@@ -88,6 +91,7 @@ public final class CompanionTracker {
     }
 
     private static void tick(MinecraftServer server) {
+        com.khanhly.lymeowz.command.SelfTest.tick(server);
         // Tạo mới cho người chơi lần đầu vào thế giới (đợi 3 giây cho thế giới load xong).
         for (Iterator<Map.Entry<UUID, Integer>> it = PENDING_SPAWN.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<UUID, Integer> s = it.next();
@@ -142,6 +146,7 @@ public final class CompanionTracker {
     }
 
     private static void onLoad(Entity entity, ServerLevel level) {
+        com.khanhly.lymeowz.command.SelfTest.onEntityLoad(entity, level);
         if (!(entity instanceof LyMeowzEntity ly)) return;
         if (CompanionStore.byCompanion(ly.getUUID()) == null && CompanionStore.isRetired(ly.getUUID())) {
             // Bản cũ bị bỏ lại (đã có bản mới thay thế) → gỡ đi để không bị trùng.

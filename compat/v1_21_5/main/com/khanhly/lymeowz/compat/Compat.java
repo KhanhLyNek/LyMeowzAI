@@ -32,7 +32,7 @@ public final class Compat {
     private Compat() {}
 
     private static final TicketType FOLLOW = Registry.register(BuiltInRegistries.TICKET_TYPE, "lymeowz_follow",
-            new TicketType(60L, false, TicketType.TicketUse.LOADING_AND_SIMULATION));
+            new TicketType(100L, false, TicketType.TicketUse.LOADING_AND_SIMULATION));
     private static final TicketType RECALL = Registry.register(BuiltInRegistries.TICKET_TYPE, "lymeowz_recall",
             new TicketType(100L, false, TicketType.TicketUse.LOADING_AND_SIMULATION));
 
@@ -98,6 +98,11 @@ public final class Compat {
     public static boolean isFlower(ItemStack stack) {
         return stack.is(ItemTags.SMALL_FLOWERS) || stack.is(Items.SUNFLOWER) || stack.is(Items.LILAC)
                 || stack.is(Items.ROSE_BUSH) || stack.is(Items.PEONY);
+    }
+
+    public static void damage(net.minecraft.world.entity.LivingEntity e, ServerLevel level,
+                              net.minecraft.world.damagesource.DamageSource source, float amount) {
+        e.hurtServer(level, source, amount);
     }
 
     public static void hearts(ServerLevel level, double x, double y, double z) {

@@ -32,7 +32,7 @@ public final class Compat {
     private Compat() {}
 
     private static final TicketType<ChunkPos> FOLLOW =
-            TicketType.create("lymeowz_follow", Comparator.comparingLong(ChunkPos::toLong), 60);
+            TicketType.create("lymeowz_follow", Comparator.comparingLong(ChunkPos::toLong), 100);
     private static final TicketType<ChunkPos> RECALL =
             TicketType.create("lymeowz_recall", Comparator.comparingLong(ChunkPos::toLong), 100);
 
@@ -97,6 +97,11 @@ public final class Compat {
     public static boolean isFlower(ItemStack stack) {
         return stack.is(ItemTags.SMALL_FLOWERS) || stack.is(Items.SUNFLOWER) || stack.is(Items.LILAC)
                 || stack.is(Items.ROSE_BUSH) || stack.is(Items.PEONY);
+    }
+
+    public static void damage(net.minecraft.world.entity.LivingEntity e, ServerLevel level,
+                              net.minecraft.world.damagesource.DamageSource source, float amount) {
+        e.hurt(source, amount);
     }
 
     public static void hearts(ServerLevel level, double x, double y, double z) {

@@ -36,7 +36,7 @@ public final class Compat {
     // KEEP_DIMENSION_ACTIVE: từ 1.21.9 chiều không gian không có người chơi sẽ ngừng tick nếu không có ticket này.
     private static final int FLAGS = TicketType.FLAG_LOADING | TicketType.FLAG_SIMULATION | TicketType.FLAG_KEEP_DIMENSION_ACTIVE;
     private static final TicketType FOLLOW = Registry.register(BuiltInRegistries.TICKET_TYPE, "lymeowz_follow",
-            new TicketType(60L, FLAGS));
+            new TicketType(100L, FLAGS));
     private static final TicketType RECALL = Registry.register(BuiltInRegistries.TICKET_TYPE, "lymeowz_recall",
             new TicketType(100L, FLAGS));
 
@@ -106,6 +106,11 @@ public final class Compat {
     public static boolean isFlower(ItemStack stack) {
         return stack.is(SMALL_FLOWERS) || stack.is(Items.SUNFLOWER) || stack.is(Items.LILAC)
                 || stack.is(Items.ROSE_BUSH) || stack.is(Items.PEONY);
+    }
+
+    public static void damage(net.minecraft.world.entity.LivingEntity e, ServerLevel level,
+                              net.minecraft.world.damagesource.DamageSource source, float amount) {
+        e.hurtServer(level, source, amount);
     }
 
     public static void hearts(ServerLevel level, double x, double y, double z) {

@@ -2,7 +2,7 @@
 
 > *"Mugyu~? Mình không hiểu lắm..."*
 
-Mod Minecraft **Fabric 1.21.1** thêm **LyMeowz**, một cô bạn đồng hành AI để thế giới bớt cô đơn hơn.
+Mod Minecraft **Fabric** (từ **1.21** tới **26.3**) thêm **LyMeowz**, một cô bạn đồng hành AI để thế giới bớt cô đơn hơn.
 Cô ấy đi chơi cùng bạn, tự tìm bạn khi bị lạc, tự về nhà khi bạn đi ngủ hoặc thoát game, và hay nói
 **"Mugyu~"** khi không hiểu hoặc khi ngại ngùng.
 
@@ -49,10 +49,11 @@ Bạn chat bình thường. Cô ấy nghe thấy khi đứng cách bạn dưới
 /lymeowz say <câu>   nói với cô ấy từ bất cứ đâu
 /lymeowz dismiss     tạm biệt cô ấy
 /lymeowz reload      (OP) tải lại config
+/lymeowz selftest    (OP) tự kiểm tra mod trên phiên bản Minecraft đang chạy
 ```
 
-Lần đầu vào thế giới, bạn được tặng sẵn một LyMeowz. Ngoài ra còn có **Trứng triệu hồi LyMeowz** trong tab
-Spawn Eggs: bạn đặt trứng xuống rồi chuột phải để nhận cô ấy.
+Lần đầu vào thế giới, bạn được tặng sẵn một LyMeowz. Một LyMeowz không chủ (ví dụ tạo bằng
+`/summon lymeowz:lymeowz`) sẽ nhận bạn làm chủ khi bạn chuột phải vào cô ấy.
 
 ## Cấu hình: `config/lymeowz.json`
 
@@ -92,28 +93,55 @@ ra lệnh cho cô ấy bằng các thẻ `[FOLLOW]`, `[STAY]`, `[HOME]`, `[COME]
 
 ## Cài đặt
 
-1. Cài [Fabric Loader](https://fabricmc.net/use/) cho Minecraft 1.21.1 và [Fabric API](https://modrinth.com/mod/fabric-api).
-2. Chép `lymeowzai-1.0.0.jar` vào thư mục `mods/`.
+1. Cài [Fabric Loader](https://fabricmc.net/use/) bản mới nhất (26.x cần 0.18.4 trở lên) và [Fabric API](https://modrinth.com/mod/fabric-api) cho phiên bản Minecraft của bạn.
+2. Chọn đúng file theo bảng dưới rồi chép vào thư mục `mods/`.
+
+| Minecraft | File | Java |
+|---|---|---|
+| 1.21 – 1.21.1 | `lymeowzai-1.1.0+1.21.1.jar` | 21 |
+| 1.21.2 – 1.21.4 | `lymeowzai-1.1.0+1.21.4.jar` | 21 |
+| 1.21.5 | `lymeowzai-1.1.0+1.21.5.jar` | 21 |
+| 1.21.6 – 1.21.8 | `lymeowzai-1.1.0+1.21.8.jar` | 21 |
+| 1.21.9 – 1.21.10 | `lymeowzai-1.1.0+1.21.10.jar` | 21 |
+| 1.21.11 | `lymeowzai-1.1.0+1.21.11.jar` | 21 |
+| 26.1 – 26.1.2 | `lymeowzai-1.1.0+26.1.2.jar` | 25 |
+| 26.2 | `lymeowzai-1.1.0+26.2.jar` | 25 |
+| 26.3 | `lymeowzai-1.1.0+26.3.jar` | 25 |
+
+Chọn nhầm file cũng không sao: Fabric sẽ báo phiên bản không khớp thay vì làm hỏng thế giới.
+
+Dữ liệu của cô ấy (chủ, nhà, chế độ, lịch sử trò chuyện) được lưu trong `<thế giới>/data/lymeowz.json`.
 
 ## Build
 
-Cần Java 21.
+Cần **Java 25** (Gradle tự dùng Java 21 cho các bản 1.21.x nếu máy có cả hai).
 
 ```bash
-./gradlew build          # jar nằm ở build/libs/
-./gradlew runClient      # chạy thử
+./gradlew build                 # build mọi phiên bản → build/libs/
+./gradlew :1.21.1:build         # chỉ một phiên bản
+./gradlew :26.3:runClient       # chạy thử
 ```
 
 ## Cấu trúc mã nguồn
 
+Một mã nguồn chung (tên Mojang) cho mọi phiên bản, cộng một lớp `compat` nhỏ cho từng nhóm phiên bản
+ở những chỗ API Minecraft thay đổi.
+
 ```
-entity/LyMeowzEntity   AI chính: đi theo, đi chơi, về nhà, dịch chuyển, chống kẹt, ngất
-world/ChunkKeeper      chunk ticket tự hết hạn
-world/CompanionState   lưu cô ấy ở đâu (theo thế giới) để tìm lại khi chunk đã unload
-world/CompanionTracker vào game → đánh thức cô ấy, kiểm tra định kỳ, chống trùng lặp
-chat/Brain             hiểu câu chat, nhận diện ý định, gọi LLM
-chat/Lines             lời thoại (Mugyu~)
-chat/LlmClient         gọi API kiểu OpenAI bất đồng bộ
+src/main/java/…          mã chung
+  entity/LyMeowzEntity     AI chính: đi theo, đi chơi, về nhà, dịch chuyển, chống kẹt, ngất
+  world/CompanionStore     dữ liệu lưu ra lymeowz.json (không phụ thuộc định dạng NBT của từng bản)
+  world/CompanionTracker   vào game → đánh thức cô ấy, kiểm tra định kỳ, chống trùng lặp
+  chat/Brain               hiểu câu chat, nhận diện ý định, gọi LLM
+  chat/Lines               lời thoại (Mugyu~)
+  command/SelfTest         /lymeowz selftest
+compat/<nhóm>/            Compat, LyMeowzBase (server) và ClientCompat (renderer) theo phiên bản
+  v1_21_1   1.21 – 1.21.1
+  v1_21_2   1.21.2 – 1.21.4   (render state, hurtServer, TeleportTransition)
+  v1_21_5   1.21.5 – 1.21.8   (TicketType mới, RespawnConfig, snapTo)
+  v1_21_9   1.21.9 – 1.21.10  (AvatarRenderState, RespawnData, KEEP_DIMENSION_ACTIVE)
+  v1_21_11  1.21.11 – 26.3    (Identifier, PermissionSet; 26.x không remap)
+versions/<bản>/gradle.properties   phiên bản Minecraft, Fabric API, Java, nhóm compat, dải phiên bản hỗ trợ
 ```
 
 MIT License · KhanhLyNek
