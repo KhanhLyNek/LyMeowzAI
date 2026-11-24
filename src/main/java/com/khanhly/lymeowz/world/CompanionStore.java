@@ -56,6 +56,8 @@ public final class CompanionStore {
         public float food = 20;
         /** Túi đồ (định dạng codec ItemStack của Minecraft). */
         @Nullable public com.google.gson.JsonElement inventory;
+        /** Tâm trí: tính cách, cảm xúc, trí nhớ, kinh nghiệm. */
+        @Nullable public com.khanhly.lymeowz.mind.MindData mind;
     }
 
     private static final class FileFormat {

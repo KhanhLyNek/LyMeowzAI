@@ -28,12 +28,19 @@ public class SmeltTask extends Task {
     private double fuelLeft;
     private int progress;
     private int done;
+    private Item lastResult;
+    private final java.util.Map<Item, Integer> results = new java.util.HashMap<>();
     private boolean cleaning;
     private final BlockBreaker breaker = new BlockBreaker();
 
     public SmeltTask(LyMeowzEntity ly) {
         super(ly);
         this.timeout = TICKS_PER_ITEM * MAX_ITEMS + 20 * 30;
+    }
+
+    @Override
+    public boolean succeeded() {
+        return done > 0;
     }
 
     @Override
@@ -54,7 +61,6 @@ public class SmeltTask extends Task {
             Direction face = ly.getDirection().getOpposite();
             furnace = ly.placeNear(level, Blocks.FURNACE.defaultBlockState().setValue(AbstractFurnaceBlock.FACING, face));
             if (furnace == null) { ly.inv().put(new ItemStack(Items.FURNACE)); return false; }
-            ly.sayWork("smelt", "Nhóm lò nướng đồ thôi~");
             return true;
         }
         BlockState st = level.getBlockState(furnace);
@@ -76,6 +82,7 @@ public class SmeltTask extends Task {
         if (++progress >= TICKS_PER_ITEM) {
             progress = 0;
             Item result = Tools.smeltResult(input);
+            if (result != null) results.merge(result, 1, Integer::sum);
             ItemStack raw = ly.inv().takeOne(s -> s.getItem() == input.getItem());
             if (raw.isEmpty() || result == null) return finish(level, st);
             fuelLeft -= 1.0;
@@ -98,7 +105,8 @@ public class SmeltTask extends Task {
 
     private boolean finish(ServerLevel level, BlockState st) {
         if (st.getValue(AbstractFurnaceBlock.LIT)) level.setBlock(furnace, st.setValue(AbstractFurnaceBlock.LIT, false), 3);
-        if (done > 0) ly.sayWork("smelted", "Nướng xong rồi nè~ Thơm quá!");
+        results.entrySet().stream().max(java.util.Map.Entry.comparingByValue()).ifPresent(e ->
+                ly.speak(com.khanhly.lymeowz.speech.Speech.Act.DONE, com.khanhly.lymeowz.speech.Speech.Ctx.of().action("nung").item(e.getKey(), e.getValue())));
         cleaning = true;
         return true;
     }

@@ -38,6 +38,11 @@ public class ChopTreeTask extends Task {
     }
 
     @Override
+    public boolean succeeded() {
+        return chopped > 0;
+    }
+
+    @Override
     public String name() {
         return "chặt cây";
     }

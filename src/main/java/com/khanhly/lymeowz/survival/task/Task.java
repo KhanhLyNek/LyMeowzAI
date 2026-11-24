@@ -26,6 +26,11 @@ public abstract class Task {
 
     protected abstract boolean run(ServerLevel level);
 
+    /** Việc có thành công không (để học). */
+    public boolean succeeded() {
+        return false;
+    }
+
     /** Dừng (xong việc hoặc bị ngắt): dọn dẹp. */
     public void stop(ServerLevel level) {}
 }

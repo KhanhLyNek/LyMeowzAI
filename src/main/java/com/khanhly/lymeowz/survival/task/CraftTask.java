@@ -34,6 +34,11 @@ public class CraftTask extends Task {
     }
 
     @Override
+    public boolean succeeded() {
+        return steps != null && index >= steps.size();
+    }
+
+    @Override
     public String name() {
         return "chế tạo";
     }

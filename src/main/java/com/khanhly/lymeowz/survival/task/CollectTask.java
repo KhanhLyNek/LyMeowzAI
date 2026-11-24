@@ -22,6 +22,11 @@ public class CollectTask extends Task {
     }
 
     @Override
+    public boolean succeeded() {
+        return !item.isAlive();
+    }
+
+    @Override
     public String name() {
         return "nhặt đồ";
     }

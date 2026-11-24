@@ -37,6 +37,11 @@ public class MineTask extends Task {
     }
 
     @Override
+    public boolean succeeded() {
+        return mined > 0;
+    }
+
+    @Override
     public String name() {
         return "đào đá";
     }

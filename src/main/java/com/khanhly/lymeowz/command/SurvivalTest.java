@@ -111,6 +111,9 @@ public final class SurvivalTest {
         ly.addHunger(-8);
         startHunger = lastHunger = 12;
 
+        var pers = ly.mind().p();
+        log(String.format("Tính cách: dũng cảm %.2f, chăm %.2f, tò mò %.2f, thích xây %.2f, thích đánh %.2f, nói nhiều %.2f, vui vẻ %.2f → \"%s\", lý tưởng: %s",
+                pers.brave, pers.diligent, pers.curious, pers.builder, pers.fighter, pers.talkative, pers.cheerful, pers.describe(), pers.idealText()));
         srv.tickRateManager().requestGameToSprint(MAX_TICKS / 20);
         log("Khu thử: " + trees.length + " cây, đồi đá có 4 quặng than + 4 quặng sắt, 6 con bò. Tua nhanh " + MAX_TICKS / 1200 + " phút...");
     }
@@ -172,10 +175,21 @@ public final class SurvivalTest {
                     ly.distanceTo(owner), ly.blockPosition().toShortString(), ly.getHealth()));
         }
         if (ticks % 1200 == 0) {
-            log(String.format("[%2d phút] đang %s, đói %d/20, máu %.0f, cầm %s | %s", ticks / 1200, ly.survival.currentName(),
-                    ly.getHunger(), ly.getHealth(), ly.getMainHandItem().isEmpty() ? "tay không" : ly.getMainHandItem().getHoverName().getString(),
+            var m = ly.mind().data();
+            log(String.format("[%2d phút] đang %s (%s), đói %d, máu %.0f | sợ %.0f vui %.0f chán %.0f tò mò %.0f năng lượng %.0f giao tiếp %.0f → %s | nhớ %d nơi | %s",
+                    ticks / 1200, ly.survival.currentName(), ly.survival.currentReason(), ly.getHunger(), ly.getHealth(),
+                    m.fear, m.joy, m.boredom, m.curiosity, m.energy, m.social, ly.mind().dominantFeeling(), m.places.size(),
                     Survival.summary(ly.inventoryWithHand())));
         }
+        // Trò chuyện thử với chủ giả ở vài thời điểm.
+        String[] chats = switch (ticks) {
+            case 600 -> new String[]{"chào Ly", "cậu tên gì?", "cậu thích gì?"};
+            case 3600 -> new String[]{"ly ơi cậu đói không?", "cậu đang làm gì vậy?", "cậu dễ thương quá"};
+            case 9600 -> new String[]{"cậu thấy sao?", "mỏ đá ở đâu?", "rừng ở đâu?", "trong túi có gì?"};
+            case 16800 -> new String[]{"đồ ngốc", "kể chuyện đi", "hôm nay làm được gì?", "cậu có thích mình không?", "blorp xyz?"};
+            default -> null;
+        };
+        if (chats != null) for (String c : chats) { log("  <LyTester> " + c); ly.brain.hear(owner, c); }
         boolean allDone = milestones.size() >= 15;
         if (allDone && !ly.survival.busy() && ticks % 100 == 0) finish("xong mọi mốc");
         else if (ticks >= MAX_TICKS) finish("hết giờ");

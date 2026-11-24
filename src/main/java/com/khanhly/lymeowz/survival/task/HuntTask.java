@@ -25,6 +25,11 @@ public class HuntTask extends Task {
     }
 
     @Override
+    public boolean succeeded() {
+        return !prey.isAlive();
+    }
+
+    @Override
     public String name() {
         return "đi săn";
     }

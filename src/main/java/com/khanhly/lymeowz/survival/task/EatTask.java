@@ -11,10 +11,16 @@ import net.minecraft.world.item.ItemStack;
 /** Lấy đồ ăn ra cầm trên tay, ăn trong 1,6 giây như người chơi. */
 public class EatTask extends Task {
     private ItemStack food = ItemStack.EMPTY;
+    private boolean eaten;
 
     public EatTask(LyMeowzEntity ly) {
         super(ly);
         this.timeout = 60;
+    }
+
+    @Override
+    public boolean succeeded() {
+        return eaten;
     }
 
     @Override
@@ -43,6 +49,8 @@ public class EatTask extends Task {
         ly.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
         level.playSound(null, ly.blockPosition(), SoundEvents.PLAYER_BURP, SoundSource.NEUTRAL, 0.5f, 1.0f);
         food = ItemStack.EMPTY;
+        eaten = true;
+        ly.mind().event(com.khanhly.lymeowz.mind.Mind.Event.ATE, null, null, null);
         return false;
     }
 

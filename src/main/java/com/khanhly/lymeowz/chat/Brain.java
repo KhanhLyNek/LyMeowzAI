@@ -4,6 +4,9 @@ import com.khanhly.lymeowz.config.LyConfig;
 import com.khanhly.lymeowz.entity.LyMeowzEntity;
 import com.khanhly.lymeowz.compat.Compat;
 import com.khanhly.lymeowz.world.CompanionStore;
+import com.khanhly.lymeowz.speech.Speech;
+import com.khanhly.lymeowz.speech.Understanding;
+import com.khanhly.lymeowz.survival.Survival;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -35,7 +38,8 @@ public class Brain {
         String n = Normalizer.normalize(s.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .replace('đ', 'd');
-        return " " + n.replaceAll("[^a-z0-9?]+", " ").trim() + " ";
+        // Tách dấu "?" thành một từ riêng để "gi?" vẫn khớp "gi".
+        return " " + n.replace("?", " ? ").replaceAll("[^a-z0-9?]+", " ").trim() + " ";
     }
 
     private static boolean has(String n, String... phrases) {
@@ -76,38 +80,43 @@ public class Brain {
         if (!named && !near) return;
 
         remember("user: " + raw);
+        ly.mind().event(com.khanhly.lymeowz.mind.Mind.Event.CHATTED, player, null, null);
         Intent intent = parse(raw);
+        // Người đối xử tệ với cô ấy thì cô ấy có thể không nghe lời.
+        boolean grudge = ly.mind().affinity(player.getUUID()) < -50 && ly.getRandom().nextFloat() < 0.6f;
+        if (grudge && intent.ordinal() <= Intent.WORK.ordinal()) { reply(Speech.Act.REFUSE, Speech.Ctx.of()); return; }
         switch (intent) {
             case SET_HOME -> {
                 ly.setHome((ServerLevel) player.level(), player.blockPosition());
-                reply(Lines.HOME_SET);
+                reply(Speech.Act.HOME_SET, Speech.Ctx.of());
                 ly.hearts();
             }
-            case HOME -> { ly.setMode(LyMeowzEntity.Mode.HOME); reply(Lines.GO_HOME); }
-            case COME -> { come(player); reply(Lines.COME); }
-            case FOLLOW -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); reply(Lines.FOLLOW); }
-            case STAY -> { ly.setMode(LyMeowzEntity.Mode.STAY); reply(Lines.STAY); }
-            case WOOD -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.WOOD); reply(Lines.GO_WOOD); }
-            case STONE -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.STONE); reply(Lines.GO_STONE); }
-            case FOOD -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.FOOD); reply(Lines.GO_FOOD); }
-            case WORK -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(com.khanhly.lymeowz.survival.Survival.Focus.AUTO); reply(Lines.GO_WORK); }
-            case GIVE -> reply(ly.giveResourcesTo(player) > 0 ? Lines.GIVE : Lines.GIVE_NOTHING);
-            case INV -> {
-                String line = "Trong túi mình có: " + com.khanhly.lymeowz.survival.Survival.summary(ly.inventoryWithHand())
-                        + ". Đói: " + ly.getHunger() + "/20.";
-                ly.sayRaw(line);
-                remember("assistant: " + line);
+            case HOME -> { ly.setMode(LyMeowzEntity.Mode.HOME); ack("HOME"); }
+            case COME -> { come(player); ack("COME"); }
+            case FOLLOW -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ack("FOLLOW"); }
+            case STAY -> { ly.setMode(LyMeowzEntity.Mode.STAY); ack("STAY"); }
+            case WOOD -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(Survival.Focus.WOOD); ack("WOOD"); }
+            case STONE -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(Survival.Focus.STONE); ack("STONE"); }
+            case FOOD -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(Survival.Focus.FOOD); ack("FOOD"); }
+            case WORK -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.survival.setFocus(Survival.Focus.AUTO); ack("WORK"); }
+            case GIVE -> {
+                int given = ly.giveResourcesTo(player);
+                reply(given > 0 ? Speech.Act.GIVE : Speech.Act.GIVE_NOTHING, Speech.Ctx.of().item(null, given));
             }
-            case LOVE -> { reply(Lines.EMBARRASSED); ly.hearts(); }
-            case THANKS -> reply(Lines.THANKS);
-            case HOW_ARE_YOU -> reply(Lines.HOW_ARE_YOU);
-            case WHO -> reply(Lines.WHO_ARE_YOU);
-            case GREET -> reply(Lines.GREET);
-            case UNKNOWN -> {
+            case GREET -> reply(Speech.Act.GREET, Speech.Ctx.of());
+            case THANKS -> reply(Speech.Act.THANKS, Speech.Ctx.of());
+            case HOW_ARE_YOU -> reply(Speech.Act.FEELING, Speech.Ctx.of());
+            default -> {
+                // Câu hỏi, khen/chê, rủ nói chuyện: tự hiểu và tự trả lời từ trạng thái + trí nhớ.
+                if (Understanding.respond(ly, player, raw)) return;
                 if (cfg.llm.enabled) askLlm(player);
-                else if (named || n.contains("?")) reply(Lines.CONFUSED);
+                else if (named || n.contains("?")) reply(Speech.Act.CONFUSED, Speech.Ctx.of());
             }
         }
+    }
+
+    private void ack(String what) {
+        reply(Speech.Act.ACK, Speech.Ctx.of().text(what));
     }
 
     private void come(ServerPlayer player) {
@@ -116,10 +125,11 @@ public class Brain {
         else ly.getNavigation().moveTo(player, 1.3);
     }
 
-    private void reply(String[] lines) {
-        String line = Lines.pick(lines, ly.getRandom());
-        ly.say(line);
-        remember("assistant: " + line.replace("%s", LyConfig.get().name));
+    private void reply(Speech.Act act, Speech.Ctx ctx) {
+        String line = Speech.build(ly, act, ctx.to(ly.getOwner()));
+        if (line.isEmpty()) return;
+        ly.sayRaw(line);
+        remember("assistant: " + line);
     }
 
     /** Lịch sử hội thoại ngắn ("user: ..." / "assistant: ...") – lưu cùng dữ liệu của cô ấy. */
@@ -148,7 +158,7 @@ public class Brain {
             waitingLlm = false;
             if (ly.isRemoved()) return;
             if (err != null || text == null || text.isBlank()) {
-                reply(Lines.CONFUSED);
+                reply(Speech.Act.CONFUSED, Speech.Ctx.of());
                 return;
             }
             String clean = text;

@@ -1,6 +1,5 @@
 package com.khanhly.lymeowz.command;
 
-import com.khanhly.lymeowz.chat.Lines;
 import com.khanhly.lymeowz.config.LyConfig;
 import com.khanhly.lymeowz.entity.LyMeowzEntity;
 import com.khanhly.lymeowz.compat.Compat;
@@ -28,21 +27,21 @@ public final class LyCommands {
     public static void register(CommandDispatcher<CommandSourceStack> d) {
         d.register(literal("lymeowz")
                 .then(literal("summon").executes(LyCommands::summon))
-                .then(literal("follow").executes(c -> act(c, (ly, p) -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.say(Lines.FOLLOW); })))
-                .then(literal("stay").executes(c -> act(c, (ly, p) -> { ly.setMode(LyMeowzEntity.Mode.STAY); ly.say(Lines.STAY); })))
-                .then(literal("home").executes(c -> act(c, (ly, p) -> { ly.setMode(LyMeowzEntity.Mode.HOME); ly.say(Lines.GO_HOME); })))
+                .then(literal("follow").executes(c -> act(c, (ly, p) -> { ly.setMode(LyMeowzEntity.Mode.FOLLOW); ly.speak(com.khanhly.lymeowz.speech.Speech.Act.ACK, com.khanhly.lymeowz.speech.Speech.Ctx.of().text("FOLLOW")); })))
+                .then(literal("stay").executes(c -> act(c, (ly, p) -> { ly.setMode(LyMeowzEntity.Mode.STAY); ly.speak(com.khanhly.lymeowz.speech.Speech.Act.ACK, com.khanhly.lymeowz.speech.Speech.Ctx.of().text("STAY")); })))
+                .then(literal("home").executes(c -> act(c, (ly, p) -> { ly.setMode(LyMeowzEntity.Mode.HOME); ly.speak(com.khanhly.lymeowz.speech.Speech.Act.GO_HOME); })))
                 .then(literal("sethome").executes(c -> act(c, (ly, p) -> {
                     ly.setHome((ServerLevel) p.level(), p.blockPosition());
-                    ly.say(Lines.HOME_SET);
+                    ly.speak(com.khanhly.lymeowz.speech.Speech.Act.HOME_SET);
                     ly.hearts();
                 })))
                 .then(literal("info").executes(LyCommands::info))
                 .then(literal("say").then(argument("message", StringArgumentType.greedyString())
                         .executes(c -> act(c, (ly, p) -> ly.brain.hear(p, StringArgumentType.getString(c, "message")) ))))
                 .then(literal("inv").executes(c -> act(c, (ly, p) -> ly.openInventory(p))))
-                .then(literal("give").executes(c -> act(c, (ly, p) -> ly.say(ly.giveResourcesTo(p) > 0 ? com.khanhly.lymeowz.chat.Lines.GIVE : com.khanhly.lymeowz.chat.Lines.GIVE_NOTHING))))
+                .then(literal("give").executes(c -> act(c, (ly, p) -> ly.speak(ly.giveResourcesTo(p) > 0 ? com.khanhly.lymeowz.speech.Speech.Act.GIVE : com.khanhly.lymeowz.speech.Speech.Act.GIVE_NOTHING))))
                 .then(literal("dismiss").executes(c -> act(c, (ly, p) -> {
-                    ly.say("Mugyu~... tạm biệt nha. Gọi /lymeowz summon nếu cậu nhớ mình nhé...");
+                    ly.speak(com.khanhly.lymeowz.speech.Speech.Act.BYE);
                     ly.discard();
                 })))
                 .then(literal("selftest").requires(Compat::isOp)
@@ -72,14 +71,14 @@ public final class LyCommands {
         if (ly != null) {
             ly.setMode(LyMeowzEntity.Mode.FOLLOW);
             ly.teleportToOwner(p);
-            ly.say(Lines.COME);
+            ly.speak(com.khanhly.lymeowz.speech.Speech.Act.ACK, com.khanhly.lymeowz.speech.Speech.Ctx.of().text("COME"));
         } else if (CompanionStore.byOwner(p.getUUID()) != null) {
             // Cô ấy đang ngủ trong chunk chưa load – tạo lại ngay cạnh bạn (bản cũ sẽ tự gỡ khi được load).
             ly = CompanionTracker.spawnFor(p);
-            if (ly != null) ly.say(Lines.WELCOME_BACK);
+            if (ly != null) ly.speak(com.khanhly.lymeowz.speech.Speech.Act.WELCOME_BACK);
         } else {
             ly = CompanionTracker.spawnFor(p);
-            if (ly != null) { ly.say(Lines.FIRST_MEET); ly.hearts(); }
+            if (ly != null) { ly.speak(com.khanhly.lymeowz.speech.Speech.Act.FIRST_MEET); ly.hearts(); }
         }
         return 1;
     }

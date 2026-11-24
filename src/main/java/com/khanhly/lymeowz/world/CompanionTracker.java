@@ -1,7 +1,6 @@
 package com.khanhly.lymeowz.world;
 
 import com.khanhly.lymeowz.LyMeowzMod;
-import com.khanhly.lymeowz.chat.Lines;
 import com.khanhly.lymeowz.compat.Compat;
 import com.khanhly.lymeowz.config.LyConfig;
 import com.khanhly.lymeowz.entity.LyMeowzEntity;
@@ -102,7 +101,7 @@ public final class CompanionTracker {
             ServerPlayer p = server.getPlayerList().getPlayer(s.getKey());
             if (p != null && CompanionStore.byOwner(p.getUUID()) == null) {
                 LyMeowzEntity ly = spawnFor(p);
-                if (ly != null) { ly.say(Lines.FIRST_MEET); ly.hearts(); }
+                if (ly != null) { ly.speak(com.khanhly.lymeowz.speech.Speech.Act.FIRST_MEET); ly.hearts(); }
             }
         }
 
@@ -128,7 +127,7 @@ public final class CompanionTracker {
                 it.remove();
                 LyMeowzMod.LOGGER.warn("Không tìm thấy LyMeowz của {}, tạo lại cô ấy.", owner.getName().getString());
                 LyMeowzEntity fresh = spawnFor(owner);
-                if (fresh != null) fresh.say(Lines.WELCOME_BACK);
+                if (fresh != null) fresh.speak(com.khanhly.lymeowz.speech.Speech.Act.WELCOME_BACK);
             }
         }
 
