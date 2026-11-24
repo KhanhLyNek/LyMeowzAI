@@ -37,6 +37,7 @@ public final class SelfTest {
         double distBefore;
         int passed, failed;
         boolean seenInNether;
+        int waited;
 
         LyMeowzEntity ly() {
             for (ServerLevel l : server.getAllLevels()) {
@@ -98,7 +99,11 @@ public final class SelfTest {
             e.setHome(ow, c.home);
             c.check("đăng ký chủ", e.data() != null && c.owner.equals(e.getOwnerUuid()), "");
         }));
-        steps.add(new Step(40, "dịch chuyển xa + giữ chunk", c -> {
+        steps.add(new Step(20, "đợi cô ấy xuất hiện", c -> {
+            // Chunk mới load cần vài tick mới cho truy cập entity (26.x không có spawn chunks): đợi tối đa 10 giây.
+            if (c.ly() == null && c.waited++ < 20) { index--; wait = 10; }
+        }));
+        steps.add(new Step(0, "dịch chuyển xa + giữ chunk", c -> {
             LyMeowzEntity e = c.ly();
             BlockPos far = c.home.offset(300, 0, 0);
             Compat.keepChunk(ow, far, 3);

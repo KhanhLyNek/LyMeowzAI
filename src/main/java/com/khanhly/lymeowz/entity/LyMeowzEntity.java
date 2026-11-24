@@ -64,9 +64,6 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     public enum Mode { FOLLOW, STAY, HOME }
 
-    /** Dữ liệu lưu trữ – null nếu cô ấy chưa có chủ. */
-    @Nullable private CompanionStore.Data data;
-    private boolean dataBound;
 
     // Trạng thái AI tạm thời
     @Nullable private BlockPos roamTarget;
@@ -125,13 +122,13 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     // ------------------------------------------------------------------ data / owner
 
+    /**
+     * Luôn tra lại (chỉ là một lần tra HashMap): từ 1.21.9 một entity ở chunk xa có thể chỉ bị "ẩn" rồi hiện lại
+     * với cùng đối tượng Java, nên không được giữ bản sao – nếu cô ấy đã bị thay bằng bản mới thì phải biết ngay.
+     */
     @Nullable
     public CompanionStore.Data data() {
-        if (!dataBound) {
-            dataBound = true;
-            data = CompanionStore.byCompanion(getUUID());
-        }
-        return data;
+        return CompanionStore.byCompanion(getUUID());
     }
 
     @Nullable
@@ -155,8 +152,7 @@ public class LyMeowzEntity extends LyMeowzBase {
     }
 
     public void setOwner(ServerPlayer player) {
-        data = CompanionStore.assign(player.getUUID(), getUUID(), here());
-        dataBound = true;
+        CompanionStore.assign(player.getUUID(), getUUID(), here());
         rememberOwnerSpawn(player);
     }
 
