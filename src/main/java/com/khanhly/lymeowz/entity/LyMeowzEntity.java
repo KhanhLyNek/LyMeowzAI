@@ -89,7 +89,6 @@ public class LyMeowzEntity extends LyMeowzBase {
         this.setCanPickUpLoot(false);
         if (this.getNavigation() instanceof GroundPathNavigation nav) {
             nav.setCanOpenDoors(true);
-            nav.setCanPassDoors(true);
         }
         this.setCustomName(Component.literal(LyConfig.get().name).withStyle(ChatFormatting.LIGHT_PURPLE));
         this.setCustomNameVisible(true);
@@ -243,7 +242,7 @@ public class LyMeowzEntity extends LyMeowzBase {
             if (owner != null) rememberOwnerSpawn(owner);
             // Tự giữ chunk khi đang theo người chơi hoặc đang trên đường về nhà.
             boolean keep = (owner != null && getMode() == Mode.FOLLOW) || travelingHome;
-            if (keep) Compat.keepChunk(level, chunkPosition(), cfg.chunkLoadRadius);
+            if (keep) Compat.keepChunk(level, blockPosition(), cfg.chunkLoadRadius);
         }
 
         if (d == null) return; // chưa có chủ: đứng chơi một mình
@@ -400,14 +399,14 @@ public class LyMeowzEntity extends LyMeowzBase {
 
         if (home.level != level) {
             travelingHome = true;
-            Compat.keepChunk(home.level, new net.minecraft.world.level.ChunkPos(home.pos), 2);
+            Compat.keepChunk(home.level, home.pos, 2);
             teleportNear(home.level, home.pos, 0, 2);
             return;
         }
         double dh = Vec3.atBottomCenterOf(home.pos).distanceTo(position());
         if (dh > 512) { // quá xa để đi bộ
             travelingHome = true;
-            Compat.keepChunk(level, new net.minecraft.world.level.ChunkPos(home.pos), 2);
+            Compat.keepChunk(level, home.pos, 2);
             teleportNear(level, home.pos, 0, 2);
             return;
         }
@@ -543,7 +542,7 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
-        if (level().isClientSide) return InteractionResult.SUCCESS;
+        if (level().isClientSide()) return InteractionResult.SUCCESS;
         ServerPlayer sp = (ServerPlayer) player;
         ItemStack stack = player.getItemInHand(hand);
 

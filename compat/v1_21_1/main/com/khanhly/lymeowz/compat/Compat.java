@@ -18,6 +18,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.portal.DimensionTransition;
@@ -55,11 +56,13 @@ public final class Compat {
         e.changeDimension(new DimensionTransition(target, pos, Vec3.ZERO, yRot, xRot, DimensionTransition.DO_NOTHING));
     }
 
-    public static void keepChunk(ServerLevel level, ChunkPos pos, int radius) {
+    public static void keepChunk(ServerLevel level, BlockPos at, int radius) {
+        ChunkPos pos = new ChunkPos(at.getX() >> 4, at.getZ() >> 4);
         level.getChunkSource().addRegionTicket(FOLLOW, pos, radius, pos);
     }
 
-    public static void recallChunk(ServerLevel level, ChunkPos pos) {
+    public static void recallChunk(ServerLevel level, BlockPos at) {
+        ChunkPos pos = new ChunkPos(at.getX() >> 4, at.getZ() >> 4);
         level.getChunkSource().addRegionTicket(RECALL, pos, 3, pos);
     }
 
@@ -92,7 +95,8 @@ public final class Compat {
     }
 
     public static boolean isFlower(ItemStack stack) {
-        return stack.is(ItemTags.FLOWERS);
+        return stack.is(ItemTags.SMALL_FLOWERS) || stack.is(Items.SUNFLOWER) || stack.is(Items.LILAC)
+                || stack.is(Items.ROSE_BUSH) || stack.is(Items.PEONY);
     }
 
     public static void hearts(ServerLevel level, double x, double y, double z) {

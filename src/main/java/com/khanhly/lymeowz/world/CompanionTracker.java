@@ -15,7 +15,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -118,7 +117,7 @@ public final class CompanionTracker {
             ResourceKey<Level> key = d.last == null ? null : Compat.dim(d.last.dim);
             ServerLevel l = key == null ? null : server.getLevel(key);
             if (l != null && r.getValue().ticksLeft % 20 == 0) {
-                Compat.recallChunk(l, new ChunkPos(new BlockPos(d.last.x, d.last.y, d.last.z)));
+                Compat.recallChunk(l, new BlockPos(d.last.x, d.last.y, d.last.z));
             }
             if (--r.getValue().ticksLeft <= 0) {
                 it.remove();
