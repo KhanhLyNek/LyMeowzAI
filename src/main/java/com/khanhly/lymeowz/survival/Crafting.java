@@ -90,6 +90,7 @@ public final class Crafting {
         r(Items.CAMPFIRE, 1, true, STICK, 3, COAL, 1, LOGS, 3);
         r(Items.OAK_BOAT, 1, true, PLANKS, 5);
         r(Items.BREAD, 1, true, WHEAT, 3);
+        r(Items.OAK_SIGN, 3, true, PLANKS, 6, STICK, 1);
     }
 
     public static boolean known(Item item) {

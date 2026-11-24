@@ -89,6 +89,7 @@ public class Brain {
         if (!named && !near && !(intent == Intent.WHERE && a >= LyMeowzEntity.ACQUAINTANCE)) return;
         if (ly.isSleeping()) return;
 
+        if (ly.bond.onChat(player, n)) { remember("user: " + raw); return; }
         remember("user: " + raw);
         ly.mind().event(Mind.Event.CHATTED, player, null, null);
         Speech.Ctx to = Speech.Ctx.of().to(player);

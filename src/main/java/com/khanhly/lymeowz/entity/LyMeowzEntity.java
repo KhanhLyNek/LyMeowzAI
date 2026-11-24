@@ -85,7 +85,8 @@ import java.util.function.Predicate;
  * Dữ liệu lâu dài nằm trong {@link CompanionStore} (không nằm trong NBT).
  */
 public class LyMeowzEntity extends LyMeowzBase {
-    public static final float ACQUAINTANCE = 15, FRIEND = 40, CLOSE = 70;
+    /** Các mức thân mật: xa lạ (0–20), quen biết (21–40), bạn bè (41–60), bạn thân (61–80), tri kỷ (81–100). */
+    public static final float ACQUAINTANCE = 21, FRIEND = 41, CLOSE = 61, SOULMATE = 81;
     /** Việc ở nhà: được phép đi xa người chơi hơn khi đang làm. */
     private static final Set<String> BASE_TASKS = Set.of("xây nhà", "làm ruộng", "thu hoạch", "làm chuồng", "chăn nuôi",
             "đặt giường", "cất đồ", "đào mỏ");
@@ -93,6 +94,7 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     public final Brain brain = new Brain(this);
     public final Survival survival = new Survival(this);
+    public final com.khanhly.lymeowz.bond.Bond bond = new com.khanhly.lymeowz.bond.Bond(this);
     private final Camp camp = new Camp();
 
     @Nullable private LyInventory inventory;
@@ -350,6 +352,7 @@ public class LyMeowzEntity extends LyMeowzBase {
             mind().tickSecond(level, focus, survival.busy() && !survival.currentName().equals("nghỉ") && !isSleeping(),
                     isSleeping() ? "ngủ" : survival.currentName());
             noticePlayers(level);
+            if (!isSleeping()) bond.tick(level);
         }
         LivingEntity tgt = getTarget();
         if (lastFightTarget != null && !lastFightTarget.isAlive() && lastFightTarget instanceof Enemy)
@@ -378,6 +381,13 @@ public class LyMeowzEntity extends LyMeowzBase {
                 case "FOLLOW" -> { if (who != null) { tickFollow(level, who); return; } }
                 case "WAIT" -> { tickWait(level, r, who); return; }
                 case "HOME" -> { if (tickGoHome(level)) return; clearRequest(); }
+                case "VISIT", "FETCH", "DELIVER", "LEAD", "MOVE" -> { tickGoTo(level, r, who); return; }
+                case "CAMP" -> {
+                    survival.tickMaintenance(level);
+                    getNavigation().stop();
+                    if (who != null) getLookControl().setLookAt(who, 10f, 10f);
+                    return;
+                }
                 default -> clearRequest();
             }
         }
@@ -389,7 +399,7 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     private void tickIndependent(ServerLevel level, LyConfig cfg) {
         ServerPlayer anchor = nearestPlayer(level, cfg.noticePlayerRange);
-        if (anchor != null && affinity(anchor) < -30) anchor = null; // tránh người mình ghét
+        if (anchor != null && (affinity(anchor) < -30 || bond.hasLeft(anchor))) anchor = null; // tránh người mình ghét / đã bỏ đi
         BlockPos center;
         int radius;
         if (anchor != null) {
@@ -577,6 +587,33 @@ public class LyMeowzEntity extends LyMeowzBase {
         camp.hold(this, level, dark, hostilesNear(level, 16) || (dark && getHealth() < 14));
     }
 
+    /** Đi tới chỗ của một yêu cầu (tới người chơi, tới chỗ đồ rơi, tới rương, dẫn đường, dọn nhà). */
+    private void tickGoTo(ServerLevel level, CompanionStore.Request r, @Nullable ServerPlayer who) {
+        if (getTarget() != null && getTarget().isAlive() && getHealth() > 8) return;
+        BlockPos to;
+        if ("VISIT".equals(r.type)) {
+            if (who == null || who.level() != level) { clearRequest(); return; }
+            to = who.blockPosition();
+            if (distanceTo(who) > 300) { teleportNear(level, to.offset(20, 0, 20), 2, 6); return; }
+        } else {
+            if (r.at == null) { clearRequest(); return; }
+            to = new BlockPos(r.at.x, r.at.y, r.at.z);
+        }
+        double d = Vec3.atBottomCenterOf(to).distanceTo(position());
+        double near = "VISIT".equals(r.type) ? 3.5 : "DELIVER".equals(r.type) ? 3.0 : 4.0;
+        if (d > near) {
+            survival.interrupt(level);
+            if ("MOVE".equals(r.type) && level.isLoaded(to)) {
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, to.getX(), to.getZ());
+                if (Math.abs(y - to.getY()) > 2 && r.at != null) { r.at.y = y; CompanionStore.markDirty(); }
+            }
+            travelTo(level, to, d);
+            return;
+        }
+        getNavigation().stop();
+        bond.arrived(level, r, who);
+    }
+
     /** Đi về nhà. @return false khi đã tới nơi (hoặc không có nhà). */
     private boolean tickGoHome(ServerLevel level) {
         BlockPos home = getHomePos();
@@ -689,6 +726,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (level().isClientSide()) return InteractionResult.SUCCESS;
         ServerPlayer sp = (ServerPlayer) player;
         float a = affinity(player);
+        if (!isSleeping() && bond.onInteract(sp, stack)) return InteractionResult.SUCCESS;
         if (isSleeping()) { speakRare(Speech.Act.SHY, 100, Speech.Ctx.of().to(player)); return InteractionResult.SUCCESS; }
 
         if (player.isShiftKeyDown() && stack.isEmpty()) {
@@ -765,6 +803,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         Entity attacker = source.getEntity();
         if (attacker instanceof Player p) {
             mind().event(Mind.Event.HIT_BY_PLAYER, p, null, blockPosition());
+            bond.onHit(p);
             CompanionStore.Request r = request();
             if (r != null && r.player.equals(p.getUUID().toString())) clearRequest();
             if (affinity(p) > FRIEND) { speakRare(Speech.Act.HURT_BY_OWNER, 100, Speech.Ctx.of().to(p)); return false; }
@@ -785,6 +824,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         setTarget(null);
         resetFallDistance();
         mind().event(Mind.Event.FAINTED, null, null, blockPosition());
+        bond.onFaint(level);
         speak(Speech.Act.FAINT);
         clearRequest();
         survival.interrupt(level);
@@ -952,7 +992,10 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     public void placeBlock(ServerLevel level, BlockPos pos, BlockState state) {
         getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
-        level.setBlock(pos, Block.updateFromNeighbourShapes(state, level, pos), Block.UPDATE_ALL);
+        // Hàng rào cần tự nối với hàng xóm; cửa, giường (2 nửa) thì đặt nguyên trạng.
+        BlockState placed = state.getBlock() instanceof net.minecraft.world.level.block.CrossCollisionBlock
+                ? Block.updateFromNeighbourShapes(state, level, pos) : state;
+        level.setBlock(pos, placed, Block.UPDATE_ALL);
         var sound = state.getSoundType();
         level.playSound(null, pos, sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
         swingArm();
@@ -1004,6 +1047,21 @@ public class LyMeowzEntity extends LyMeowzBase {
                 double dx = s.x + 2 - p.getX(), dz = s.z + 2 - p.getZ(), dy = s.y - p.getY();
                 if (dx * dx + dz * dz <= 7 * 7 && Math.abs(dy) < 8) return true;
             }
+        }
+        return false;
+    }
+
+    /** Block này có thuộc công trình của cô ấy (nhà, ruộng, chuồng...) không. */
+    public boolean ownsBlock(BlockPos p) {
+        CompanionStore.Data d = data();
+        if (d == null) return false;
+        String dim = Compat.dimId(level().dimension());
+        for (var e : d.structures.entrySet()) {
+            CompanionStore.Spot s = e.getValue();
+            if (!s.dim.equals(dim) || e.getKey().startsWith("plan:")) continue;
+            int size = e.getKey().equals("pen") ? 6 : 5;
+            if (p.getX() >= s.x - 1 && p.getX() <= s.x + size && p.getZ() >= s.z - 1 && p.getZ() <= s.z + size
+                    && p.getY() >= s.y - 1 && p.getY() <= s.y + 4) return true;
         }
         return false;
     }

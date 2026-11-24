@@ -26,7 +26,7 @@ import java.util.UUID;
  * và một chút học tăng cường (việc nào ở đâu hay thành công). Không cần mạng hay mô hình ngôn ngữ.
  */
 public class Mind {
-    public enum PlaceKind { HOME, TREES, STONE, ORE, ANIMALS, DANGER, WATER, VIEW }
+    public enum PlaceKind { HOME, TREES, STONE, ORE, ANIMALS, DANGER, WATER, VIEW, CAVE, FLOWERS }
 
     public enum Event {
         GIFT, FED, PRAISED, INSULTED, HIT_BY_PLAYER, HURT_BY_MOB, KILLED_MOB, FAINTED, FOUND_PLACE,
@@ -116,7 +116,7 @@ public class Mind {
             case OWNER_LEFT -> { d.social -= 5; }
             case CHATTED -> { d.social += 6; d.boredom -= 4; relate(who, 0.3f, true); }
             case NAMED -> { d.joy += 15; relate(who, 8, false); }
-            case SAVED -> { d.fear -= 30; d.joy += 10; relate(who, 5, false); }
+            case SAVED -> { d.fear -= 30; d.joy += 10; relate(who, 5, false); if (who != null) ly.bond.onSaved(who); }
             case BUILT -> { d.joy += 15; d.boredom -= 20; rollDay(); if (what != null) d.craftedToday.add(what); }
             case LONELY, NIGHT_FELL -> {}
         }
@@ -170,8 +170,23 @@ public class Mind {
             r.gainToday += delta;
         }
         r.affinity = Math.max(-100, Math.min(100, r.affinity + delta));
+        r.peak = Math.max(r.peak, r.affinity);
         if (delta > 0) r.good++; else if (delta < 0) r.bad++;
         r.lastSeen = d.lifeTicks;
+    }
+
+    /** Đổi độ thân trực tiếp (sự kiện): {@code capped} = tính vào giới hạn mỗi ngày. */
+    public void bond(Player who, float delta, boolean capped) {
+        relate(who, delta, capped);
+    }
+
+    @Nullable
+    public MindData.Relation relationOf(UUID player) {
+        return d.relations.get(player.toString());
+    }
+
+    public MindData.Relation relationOf(Player p) {
+        return relation(p);
     }
 
     /** Gọi mỗi phút cho người đang ở gần: quen dần nhau, nhưng có trần. */
@@ -183,6 +198,7 @@ public class Mind {
         float g = 0.3f + 0.3f * p().social;
         r.together += g;
         r.affinity = Math.min(100, r.affinity + g);
+        r.peak = Math.max(r.peak, r.affinity);
     }
 
     public float affinity(UUID player) {
@@ -227,10 +243,43 @@ public class Mind {
         if (stone >= 10) remember(PlaceKind.STONE, stoneAt, stone);
         if (ore >= 1) remember(PlaceKind.ORE, oreAt, ore);
         if (water >= 12) remember(PlaceKind.WATER, waterAt, water);
+        BlockPos cave = findCave(level, c);
+        if (cave != null) remember(PlaceKind.CAVE, cave, 1);
+        int flowers = 0;
+        BlockPos flowerAt = null;
+        for (BlockPos f : BlockPos.betweenClosed(c.offset(-8, -2, -8), c.offset(8, 2, 8))) {
+            if (level.getBlockState(f).is(BlockTags.FLOWERS)) { flowers++; if (flowerAt == null) flowerAt = f.immutable(); }
+        }
+        if (flowers >= 8) remember(PlaceKind.FLOWERS, flowerAt, flowers);
         List<Animal> animals = level.getEntitiesOfClass(Animal.class, ly.getBoundingBox().inflate(16), Animal::isAlive);
         if (animals.size() >= 3) remember(PlaceKind.ANIMALS, animals.get(0).blockPosition(), animals.size());
         // Chỗ cao nhìn xa.
         if (c.getY() > level.getSeaLevel() + 40 && level.canSeeSky(c)) remember(PlaceKind.VIEW, c, 1);
+    }
+
+    /** Cửa hang: một khoảng tối rộng ngay dưới mặt đất, thông ra ngoài. */
+    @Nullable
+    private static BlockPos findCave(ServerLevel level, BlockPos c) {
+        for (int dx = -12; dx <= 12; dx += 3) for (int dz = -12; dz <= 12; dz += 3) {
+            int x = c.getX() + dx, z = c.getZ() + dz;
+            if (!level.isLoaded(new BlockPos(x, 0, z))) continue;
+            int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            int air = 0;
+            for (int y = top - 1; y > top - 10; y--) {
+                BlockPos p = new BlockPos(x, y, z);
+                BlockState st = level.getBlockState(p);
+                if (st.isAir() && !level.canSeeSky(p)) air++;
+                else if (!st.isAir() && air > 0) break;
+            }
+            if (air >= 4) {
+                // Phải có lối vào: ô không khí nhìn thấy trời ngay cạnh.
+                for (Direction d : Direction.Plane.HORIZONTAL) {
+                    BlockPos side = new BlockPos(x, top - 1, z).relative(d, 2);
+                    if (level.getBlockState(side).isAir() && level.getBlockState(side.below()).isAir()) return new BlockPos(x, top, z);
+                }
+            }
+        }
+        return null;
     }
 
     private static boolean exposed(ServerLevel level, BlockPos p) {

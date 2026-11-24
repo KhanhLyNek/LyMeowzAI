@@ -35,6 +35,7 @@ public class BedTask extends Task {
         BlockPos foot = HouseTask.bedFoot(house), head = HouseTask.bedHead(house);
         if (ly.position().distanceTo(Vec3.atBottomCenterOf(HouseTask.inside(house))) > 2.5) {
             if (ly.getNavigation().isDone() || age % 40 == 0) ly.walkTo(HouseTask.inside(house), 1.0);
+            if (age == 20 * 45) ly.teleportNear(level, HouseTask.inside(house), 0, 1); // cửa kẹt: vào bằng mọi giá
             return true;
         }
         if (!level.getBlockState(foot).canBeReplaced() || !level.getBlockState(head).canBeReplaced()) {

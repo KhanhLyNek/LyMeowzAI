@@ -54,6 +54,20 @@ public final class CompanionTracker {
         ServerTickEvents.END_SERVER_TICK.register(CompanionTracker::tick);
         ServerEntityEvents.ENTITY_LOAD.register(CompanionTracker::onLoad);
         ServerLivingEntityEvents.AFTER_DEATH.register(CompanionTracker::onDeath);
+        net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register((oldP, newP, alive) -> {
+            if (!alive) for (LyMeowzEntity ly : loaded(((ServerLevel) newP.level()).getServer())) ly.bond.onPlayerRespawn(newP);
+        });
+        net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, be) -> {
+            if (!(level instanceof ServerLevel sl) || !(player instanceof ServerPlayer)) return;
+            for (LyMeowzEntity ly : loaded(sl.getServer())) if (ly.level() == level && ly.ownsBlock(pos)) ly.bond.onHouseBroken(player);
+        });
+        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
+            if (level instanceof ServerLevel sl && player instanceof ServerPlayer sp
+                    && player.getItemInHand(hand).getItem() instanceof net.minecraft.world.item.BlockItem) {
+                for (LyMeowzEntity ly : loaded(sl.getServer())) if (ly.level() == level) ly.bond.onPlayerBuild(sp, hit.getBlockPos());
+            }
+            return net.minecraft.world.InteractionResult.PASS;
+        });
     }
 
     /** Mọi LyMeowz đang được load. */
@@ -96,6 +110,7 @@ public final class CompanionTracker {
     }
 
     private static void onJoin(MinecraftServer server, ServerPlayer player) {
+        server.execute(() -> { for (LyMeowzEntity ly : loaded(server)) ly.bond.onPlayerJoin(player); });
         if (CompanionStore.isEmpty() && LyConfig.get().spawnOnFirstJoin && spawnCountdown < 0) {
             spawnCountdown = 100;
             spawnFor = player.getUUID();
@@ -154,6 +169,8 @@ public final class CompanionTracker {
 
     /** Người chơi giết con quái đang đánh / đứng sát cô ấy = cứu cô ấy. */
     private static void onDeath(LivingEntity dead, net.minecraft.world.damagesource.DamageSource source) {
+        if (source.getEntity() instanceof ServerPlayer killer && dead.level() instanceof ServerLevel l)
+            for (LyMeowzEntity ly : l.getEntitiesOfClass(LyMeowzEntity.class, dead.getBoundingBox().inflate(48))) ly.bond.onKill(killer, dead);
         if (!(dead instanceof Enemy) || !(dead instanceof Mob mob) || !(source.getEntity() instanceof ServerPlayer p)) return;
         if (!(dead.level() instanceof ServerLevel level)) return;
         for (LyMeowzEntity ly : level.getEntitiesOfClass(LyMeowzEntity.class, dead.getBoundingBox().inflate(10))) {

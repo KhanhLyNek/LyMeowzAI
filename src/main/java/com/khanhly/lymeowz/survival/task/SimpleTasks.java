@@ -202,6 +202,19 @@ public final class SimpleTasks {
         }
     }
 
+    /** Buồn: ngồi thụp xuống một mình, nhìn xuống đất. */
+    public static class Mope extends Task {
+        public Mope(LyMeowzEntity ly) { super(ly); timeout = 20 * 40; }
+        @Override public String name() { return "buồn"; }
+        @Override public void start(ServerLevel level) { ly.getNavigation().stop(); ly.setPose(net.minecraft.world.entity.Pose.CROUCHING); }
+        @Override protected boolean run(ServerLevel level) {
+            ly.getLookControl().setLookAt(ly.getX() + ly.getLookAngle().x, ly.getY() - 1, ly.getZ() + ly.getLookAngle().z, 5f, 5f);
+            return ly.bond.isSad();
+        }
+        @Override public void stop(ServerLevel level) { ly.setPose(net.minecraft.world.entity.Pose.STANDING); }
+        @Override public boolean succeeded() { return true; }
+    }
+
     /** Ra khỏi chuồng thú (mở cổng, đi ra, đóng cổng). */
     public static class LeavePen extends Task {
         private final BlockPos pen;

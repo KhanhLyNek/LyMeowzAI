@@ -57,15 +57,15 @@ public final class Speech {
     // ------------------------------------------------------------------ giọng nói
 
     /** Xưng hô + tâm trạng cho một lần nói. */
-    static final class Voice {
+    public static final class Voice {
         final RandomSource r;
         final Personality p;
         final MindData m;
-        final String self, you, name;
-        final float affinity;
-        final String mood;
+        public final String self, you, name;
+        public final float affinity;
+        public final String mood;
 
-        Voice(LyMeowzEntity ly, @Nullable Player listener) {
+        public Voice(LyMeowzEntity ly, @Nullable Player listener) {
             r = ly.getRandom();
             m = ly.mind().data();
             p = m.personality;
@@ -77,9 +77,9 @@ public final class Speech {
             mood = ly.mind().dominantFeeling();
         }
 
-        boolean chance(float pr) { return r.nextFloat() < pr; }
+        public boolean chance(float pr) { return r.nextFloat() < pr; }
 
-        String pick(String... options) { return options[r.nextInt(options.length)]; }
+        public String pick(String... options) { return options[r.nextInt(options.length)]; }
 
         /** "hơi" / "khá" / "rất" / "siêu" theo giá trị 0–100. */
         String degree(float v) {
@@ -104,7 +104,7 @@ public final class Speech {
             };
         }
 
-        String ending() {
+        public String ending() {
             String e = switch (mood) {
                 case "JOY" -> pick("~", " nè~", " nha~", "!", " đó~");
                 case "FEAR" -> pick("...", " đó...", "!");
@@ -316,6 +316,7 @@ public final class Speech {
             case ANIMALS -> v.pick(", có đồ ăn rồi", "");
             case WATER -> v.pick(", mát ghê", "");
             case VIEW -> v.pick(", ngắm cảnh đẹp lắm", "");
+            case CAVE, FLOWERS -> "";
             default -> "";
         };
         return s + plan;
@@ -331,6 +332,8 @@ public final class Speech {
             case DANGER -> v.pick("chỗ nguy hiểm", "chỗ đáng sợ");
             case WATER -> v.pick("một hồ nước", "nước");
             case VIEW -> v.pick("chỗ ngắm cảnh đẹp", "một đỉnh đồi cao");
+            case CAVE -> v.pick("một cái hang", "cửa hang tối om");
+            case FLOWERS -> v.pick("một cánh đồng hoa", "nhiều hoa lắm");
             case HOME -> "nhà";
         };
     }
@@ -411,7 +414,10 @@ public final class Speech {
             case "CRAFTED" -> me + " làm được " + (e.what != null ? e.what : "đồ mới");
             case "INSULTED" -> (e.who != null ? e.who : "ai đó") + " mắng " + me + "... " + me + " vẫn còn buồn";
             case "HIT_BY_PLAYER" -> (e.who != null ? e.who : "ai đó") + " đánh " + me + ", đau lắm đó";
-            case "OWNER_RETURNED" -> you + " quay lại, " + me + " vui muốn xỉu";
+            case "OWNER_RETURNED" -> (e.who != null ? e.who : you) + " tới gặp " + me + ", " + me + " vui ghê";
+            case "SAVED" -> (e.who != null ? e.who : you) + " cứu " + me + " khỏi " + (e.what != null ? "lũ " + e.what : "quái") + where;
+            case "NAMED" -> (e.who != null ? e.who : you) + " đặt tên cho " + me + " là " + e.what;
+            case "BUILT" -> me + " làm xong " + (e.what != null ? e.what : "một thứ");
             case "TASK_FAIL" -> me + " " + verb(v, e.what) + " mà không được" + where;
             default -> null;
         };

@@ -286,6 +286,9 @@ public class Decider {
             }
         }
 
+        // Ngày buồn: ngồi một mình, ít nói.
+        if (ly.bond.isSad()) out.add(new Option("buồn", 0.75f, "SAD", false, () -> new SimpleTasks.Mope(ly)));
+
         // Nghỉ: mệt, sợ, trời tối.
         float rest = 0.06f + 0.35f * tired + 0.25f * fear + (night ? 0.15f : 0);
         String restWhy = tired >= 0.3f && tired >= fear ? "TIRED" : fear >= 0.3f ? "SCARED" : night ? "NIGHT" : "IDLE";

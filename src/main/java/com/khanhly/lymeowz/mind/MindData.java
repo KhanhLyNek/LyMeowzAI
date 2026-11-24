@@ -12,6 +12,8 @@ import java.util.Set;
  */
 public class MindData {
     public Personality personality;
+    /** Món cô ấy thích nhất (mỗi thế giới một món), id vật phẩm. */
+    public String favorite;
 
     /** Nhu cầu & cảm xúc, 0–100 (đói lấy từ thanh no riêng). */
     public float fear = 0, joy = 60, boredom = 20, curiosity = 40, energy = 100, social = 70;
@@ -60,6 +62,20 @@ public class MindData {
         public float gainToday;
         /** Lần cuối bị người này đánh (lifeTicks). */
         public long lastHit = -100000;
+        /** Độ thân cao nhất từng có. */
+        public float peak;
+
+        // --- sự kiện theo mức thân mật (thời gian tính bằng game time) ---
+        public long firstMetDay = -1, seenAt = -1, greetDay = -1;
+        public String quest;
+        public int questNeed, questHave;
+        public long questUntil;
+        public long sulkUntil;
+        public boolean promised, campRewarded, safeNight, left;
+        public long lastCampAsk = -1000000, lastSurprise = -1000000, lastStory = -1000000, lastFood = -1000000,
+                lastTrade = -1000000, lastFavor = -1000000, lastExplore = -1000000, lastBuildHelp = -1000000, lastCave = -1000000;
+        /** Số tấm biển "nhớ nhung" đã để lại trong lần vắng mặt này. */
+        public int missSigns;
     }
 
     public static class Episode {

@@ -1,4 +1,4 @@
-# LyMeowz AI 🌸 — bản 3.0 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 4.0 (Minecraft 26.3)
 
 Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
 Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
@@ -50,29 +50,45 @@ và xây một hộp đá quanh mình để trú, sáng ra thì đập đi lấy
 
 ## Làm thân với cô ấy
 
-Mỗi người chơi có một **độ thân** riêng với cô ấy, từ -100 tới 100. Độ thân tăng chậm:
+Mỗi người chơi có một **độ thân** riêng với cô ấy, từ -100 tới 100, chia làm 5 mức. `/lymeowz info` cho biết độ thân của bạn.
 
-- **Ở gần nhau** mỗi phút tăng một chút, nhưng chỉ tới khoảng 30. Muốn thân hơn, bạn phải làm gì đó.
-- **Tặng quà** (cầm đồ chuột phải vào cô ấy, hoặc ném cho cô ấy): đồ càng quý càng có giá trị. **Cho ăn** khi cô ấy đói,
-  **tặng hoa**, **khen**, **trò chuyện** cũng làm độ thân tăng. Những thứ này bị giới hạn khoảng 10 điểm mỗi ngày trong
-  game, nên không thể mua chuộc cô ấy trong một buổi.
-- **Cứu cô ấy** (giết con quái đang đánh cô ấy) và **đặt tên** cho cô ấy thì không bị giới hạn.
-- Đánh cô ấy thì -15, mắng cô ấy thì -4.
+**Tăng:** ở gần nhau lâu (chỉ tới khoảng 30), tặng quà (đồ càng quý càng nhiều điểm; **món cô ấy thích nhất** được nhiều điểm
+hơn hẳn, mỗi thế giới cô ấy thích một món khác nhau, bạn phải tự tìm ra), cho ăn, khen, trò chuyện, giúp việc cô ấy nhờ,
+**cứu cô ấy khỏi quái**, ăn đồ cô ấy nấu, cùng nhau qua **đêm đầu tiên an toàn**, đặt tên cho cô ấy. Quà, khen và trò chuyện
+bị giới hạn khoảng 10 điểm mỗi ngày, nên không thể mua chuộc cô ấy trong một buổi.
 
-| Độ thân | Cô ấy là | Cô ấy làm gì |
+**Giảm:** đánh cô ấy (-15), mắng (-4), **phá nhà** cô ấy (-6), đứng nhìn cô ấy bị quái đánh tới ngất (-5),
+lâu ngày không gặp (giảm chậm).
+
+## Sự kiện theo mức thân mật
+
+Mỗi sự kiện có điều kiện, thời gian chờ và tỉ lệ xuất hiện phụ thuộc tính cách (hướng nội hay hướng ngoại, hiền, tò mò),
+tâm trạng, thời tiết và giờ trong ngày, nên không lặp lại máy móc. Các câu nói dùng kỷ niệm thật trong trí nhớ của cô ấy.
+
+| Mức | Sự kiện |
+|---|---|
+| 🌱 **Xa lạ** (0–20) | **Ánh nhìn dè dặt:** lần đầu bạn lại gần, cô ấy lùi lại, chỉ nói "…Chào." hay "Cậu là ai?" (bạn cầm vũ khí thì lùi xa hơn). **Đổi đồ:** thấy bạn cầm thứ cô ấy đang cần (gỗ, đá, hạt giống, len, sắt tùy giai đoạn), cô ấy rụt rè đề nghị đổi. Đưa cho cô ấy thì +3, trả lời "không" thì không mất gì. |
+| 🌿 **Quen biết** (21–40) | **Chào buổi sáng:** bình minh cô ấy vẫy tay, câu chào đổi theo thời tiết. **Nhờ việc nhỏ:** tìm 5 bông hoa, đốn 10 gỗ, đuổi con cáo đang rình gà. Xong việc +5 kèm một món quà. **Chia đồ ăn:** bạn hỏi "có đồ ăn không?" hoặc bạn đang đói, cô ấy đưa đồ (lấy cả trong rương). Ở mức này cô ấy đưa đồ sống. |
+| 🌳 **Bạn bè** (41–60) | **Nấu ăn cho bạn:** giờ cô ấy nướng chín rồi mới đưa ("Ăn đi, nóng đấy!"), không có thịt thì ra ruộng hái cà rốt, khoai tây. **Đi cùng khám phá:** bạn đi xa nhà, cô ấy hỏi "Cho tớ đi cùng nhé?". **Hang động bí ẩn:** thấy cửa hang lúc đi lượm củi, cô ấy về rủ bạn đi xem rồi dẫn đường; bạn bảo vệ được cô ấy trong hang thì +8. **Ngày cô ấy buồn:** tâm trạng xuống thấp thì cô ấy ngồi thụp một mình, ít nói; bạn ngồi cạnh một lúc, tặng hoa hay đồ ăn thì cô ấy vui dần lên. |
+| 🌸 **Bạn thân** (61–80) | **An ủi khi bạn chết:** cô ấy chạy tới chỗ bạn chết nhặt lại đồ, mang tới chỗ bạn hồi sinh: "Cậu ổn chứ? Tớ lo quá." **Quà bất ngờ:** thỉnh thoảng (và vào ngày kỷ niệm gặp nhau) cô ấy bỏ quà vào rương gần giường bạn, kèm tấm biển nhắn. **Cùng xây nhà:** bạn xây gần nhà cô ấy thì cô ấy góp vật liệu và gợi ý ("Thêm chậu hoa ở đây đi!"). **Kể chuyện bên lửa:** tối ngồi cạnh lửa trại, cô ấy kể chuyện cũ thật ("Nhớ hôm cậu cứu tớ khỏi lũ nhện không?"). |
+| 💫 **Tri kỷ** (81–100) | **Rủ đi cắm trại:** độ thân trên 85, cô ấy vui, trời quang, chiều tà: "Ừm… tối nay cậu rảnh không? Tớ biết một chỗ đẹp lắm." Bạn đồng ý thì cô ấy dẫn tới bờ hồ, đỉnh đồi hoặc cánh đồng hoa, đốt lửa, nướng đồ ăn, ngắm sao, nhắc lại kỷ niệm, rồi tặng **Viên đá ngắm sao**. Từ chối thì cô ấy hơi buồn nhưng không trừ điểm. **Bảo vệ bạn:** bạn bị quái đánh lúc máu thấp, cô ấy lao vào chắn. **Lời hứa:** lần đầu đạt 100, từ đó mỗi lần bạn vào game cô ấy chạy ra đón. **Nhớ nhung:** bạn vắng nhiều ngày, cô ấy cắm biển trước nhà ("Ngày 3: tớ trồng thêm cây"), bạn về thì "Cậu đi lâu quá đấy!" |
+| 🌧️ **Khi thân giảm** | **Giận dỗi:** bị đánh hay bị phá nhà, cô ấy quay lưng, không nói chuyện. Phải tặng quà xin lỗi mới làm lành. **Rời đi:** từng quen mà độ thân xuống dưới 0, cô ấy để lại tấm biển "Tớ đi đây…" rồi chuyển đi xa 150–250 block, dựng nhà mới. Bạn có thể đi tìm và tặng quà để làm lại từ đầu. |
+
+Trả lời câu hỏi của cô ấy bằng cách chat: *ừ, ok, được, đi* hoặc *không, thôi*.
+
+| Độ thân | Cô ấy là | Bạn nhờ được gì |
 |---|---|---|
-| < 15 | người lạ | ngại, ít trả lời ("...", "Mugyu~"), không nhận lời nhờ |
-| 15–40 | người quen | trả lời câu hỏi; hỏi **"cậu đang ở đâu?"** thì cô ấy đọc toạ độ và **đứng đợi bạn** ở đó |
-| 40–70 | bạn bè | nhận lời nhờ: đi theo, về nhà, đợi ở đây, chặt cây, đào đá, đi săn |
-| ≥ 70 | bạn thân | xưng "tớ – cậu", cúi chào khi gặp, thỉnh thoảng bắt chuyện, cho mở túi đồ (Shift + chuột phải) |
+| 0–20 | xa lạ | không gì cả; cô ấy ngại, ít trả lời |
+| 21–40 | quen biết | trả lời câu hỏi; hỏi **"cậu đang ở đâu?"** thì cô ấy đọc toạ độ và **đứng đợi bạn** ở đó |
+| 41–60 | bạn bè | đi theo, về nhà, đợi ở đây, chặt cây, đào đá, đi săn |
+| 61–80 | bạn thân | xưng "tớ – cậu", cúi chào khi gặp, đưa đồ, cho mở túi đồ (Shift + chuột phải) |
+| 81–100 | tri kỷ | mọi thứ ở trên |
 | < -30 | ghét bạn | tránh xa bạn, không nghe lời, bị đánh thì đánh lại |
-
-`/lymeowz info` cho biết độ thân hiện tại của bạn.
 
 ### "Cậu đang ở đâu?"
 
 Hỏi *"tọa độ nào vậy"*, *"cậu đang ở đâu?"* hay *"where are you"* thì cô ấy trả lời toạ độ. Nếu đã quen bạn
-(độ thân ≥ 15), cô ấy nghe thấy câu hỏi ở bất cứ khoảng cách nào và **ở yên chỗ đó đợi bạn** 10 phút (bạn bè thì 20 phút).
+(độ thân ≥ 21), cô ấy nghe thấy câu hỏi ở bất cứ khoảng cách nào và **ở yên chỗ đó đợi bạn** 10 phút (bạn bè thì 20 phút).
 Trời tối thì cô ấy đốt lửa trại. Có quái thì cô ấy xây hộp đá quanh mình để trú. Khi bạn tới gần thì cô ấy dỡ hộp ra.
 
 ```
@@ -133,7 +149,7 @@ skin như *3D Skin Layers*, *EMF/ETF* cũng nhận ra. Giáp cô ấy mặc cũn
 ## Cài đặt
 
 Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.4 trở lên,
-[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-3.0.0+26.3.jar` vào thư mục `mods/`.
+[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-4.0.0+26.3.jar` vào thư mục `mods/`.
 
 ## Cấu hình: `config/lymeowz.json`
 
@@ -154,7 +170,7 @@ Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.
 ## Build
 
 ```bash
-./gradlew build        # cần Java 25 → build/libs/lymeowzai-3.0.0+26.3.jar
+./gradlew build        # cần Java 25 → build/libs/lymeowzai-4.0.0+26.3.jar
 ```
 
 ## Mã nguồn
@@ -164,6 +180,7 @@ entity/LyMeowzEntity     thân thể: sống độc lập, đêm ngủ / cắm t
 mind/                    cảm xúc, trí nhớ, độ thân, học; Decider = Utility AI theo lộ trình
 speech/                  ghép câu, hiểu câu hỏi
 chat/Brain               nghe chat, phân quyền theo độ thân
+bond/Bond                19 sự kiện theo mức thân mật
 survival/Roadmap         lộ trình sinh tồn
 survival/BlockBreaker    phá block như người chơi (tầm với + tầm nhìn)
 survival/Builder, Camp   đặt block, cắm trại / hộp trú
