@@ -132,6 +132,23 @@ Mỗi file jar được kiểm tra trên **mọi** phiên bản Minecraft trong 
 - **Server thật:** dựng server Fabric bản phát hành, cho một bot người chơi vào chơi theo kịch bản
   (chào, Mugyu~, bị bỏ xa 300 block, thoát rồi vào lại, đứng đợi, sang Nether…), và chạy `/lymeowz selftest`.
 
+Kết quả với bản 1.1.0:
+
+| Minecraft | File jar | Liên kết tĩnh | Bot (18 mục) | Selftest (12 mục) |
+|---|---|---|---|---|
+| 1.21, 1.21.1 | 1.21.1 | ✅ | ✅ | ✅ |
+| 1.21.2, 1.21.3 | 1.21.3 | ✅ | ✅ | ✅ |
+| 1.21.4 | 1.21.4 | ✅ | ✅ | ✅ |
+| 1.21.5 | 1.21.5 | ✅ | ✅ | ✅ |
+| 1.21.6, 1.21.7, 1.21.8 | 1.21.8 | ✅ | ✅ | ✅ |
+| 1.21.9, 1.21.10 | 1.21.10 | ✅ | ✅ | ✅ |
+| 1.21.11 | 1.21.11 | ✅ | ✅ | ✅ |
+| 26.1, 26.1.1, 26.1.2 | 26.1.2 | ✅ | ✅ | ✅ |
+| 26.2 | 26.2 | ✅ | – (bot chưa hỗ trợ) | ✅ |
+| 26.3 | 26.3 | ✅ | – (bot chưa hỗ trợ) | ✅ |
+
+Phần vẽ nhân vật phía client chỉ được kiểm tra bằng liên kết tĩnh, chưa được mở game để nhìn tận mắt.
+
 ## Cấu trúc mã nguồn
 
 Một mã nguồn chung (tên Mojang) cho mọi phiên bản, cộng một lớp `compat` nhỏ cho từng nhóm phiên bản
