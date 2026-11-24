@@ -105,8 +105,6 @@ public class SmeltTask extends Task {
 
     private boolean finish(ServerLevel level, BlockState st) {
         if (st.getValue(AbstractFurnaceBlock.LIT)) level.setBlock(furnace, st.setValue(AbstractFurnaceBlock.LIT, false), 3);
-        results.entrySet().stream().max(java.util.Map.Entry.comparingByValue()).ifPresent(e ->
-                ly.speak(com.khanhly.lymeowz.speech.Speech.Act.DONE, com.khanhly.lymeowz.speech.Speech.Ctx.of().action("nung").item(e.getKey(), e.getValue())));
         cleaning = true;
         return true;
     }

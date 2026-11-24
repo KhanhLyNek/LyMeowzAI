@@ -16,6 +16,10 @@ public abstract class Task {
 
     public abstract String name();
 
+    public int ageTicks() {
+        return age;
+    }
+
     public void start(ServerLevel level) {}
 
     /** @return true nếu vẫn đang làm. */

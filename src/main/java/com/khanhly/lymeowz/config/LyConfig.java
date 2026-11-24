@@ -18,26 +18,26 @@ public class LyConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static LyConfig INSTANCE = new LyConfig();
 
-    /** Tên hiển thị của cô ấy. */
-    public String name = "LyMeowz";
-    /** Bán kính (block) cô ấy được tự do đi chơi quanh người chơi. */
-    public int followRadius = 100;
-    /** Khi người chơi đứng lại, cô ấy làm việc (chặt cây, đào đá, săn) trong bán kính này quanh người chơi. */
-    public int workRadius = 24;
-    /** Không chặt/đào/săn trong bán kính này quanh nhà và giường của người chơi. */
-    public int protectRadius = 16;
-    /** Xa hơn khoảng này (hoặc khác chiều không gian) thì cô ấy dịch chuyển tới người chơi. */
-    public int teleportDistance = 128;
-    /** Bán kính chunk ticket cô ấy tự giữ load quanh mình (3 = vùng 1 chunk quanh cô ấy luôn được tick). */
-    public int chunkLoadRadius = 3;
-    /** Tự tạo một LyMeowz cho người chơi lần đầu vào thế giới. */
-    public boolean autoSpawnOnFirstJoin = true;
-    /** Thỉnh thoảng tự nói chuyện vu vơ. */
+    /** Cô ấy thường ở trong khoảng này (block) quanh người chơi gần nhất. */
+    public int stayNearPlayer = 30;
+    /** Cô ấy để ý tới người chơi trong khoảng này; xa hơn thì sống một mình ở nhà của cô ấy. */
+    public int noticePlayerRange = 96;
+    /** Bán kính làm việc khi ở một mình quanh nhà. */
+    public int homeWorkRadius = 48;
+    /** Khi được nhờ đi theo mà người chơi ở quá xa (hoặc khác chiều không gian) thì dịch chuyển tới. */
+    public int teleportDistance = 160;
+    /** Không chặt/đào/săn trong bán kính này quanh giường của người chơi. */
+    public int protectRadius = 12;
+    /** Bán kính chunk ticket cô ấy tự giữ quanh mình (như một người chơi thật, thế giới quanh cô ấy luôn chạy). */
+    public int chunkLoadRadius = 2;
+    /** Tạo cô ấy (một lần cho cả thế giới) khi có người chơi vào lần đầu. */
+    public boolean spawnOnFirstJoin = true;
+    /** Bạn thân (độ thân ≥ 70) thỉnh thoảng được cô ấy bắt chuyện. */
     public boolean idleChatter = true;
-    /** Khi người chơi đi ngủ thì cô ấy cũng về nhà. */
-    public boolean goHomeWhenOwnerSleeps = true;
-    /** Khoảng cách (block) mà cô ấy nghe thấy bạn chat mà không cần gọi tên. */
-    public int hearingDistance = 32;
+    /** Khoảng cách (block) mà cô ấy nghe thấy bạn chat. Gọi tên (nếu bạn đã đặt tên) thì nghe ở mọi nơi. */
+    public int hearingDistance = 24;
+    /** Số phút cô ấy đứng đợi khi bạn hỏi toạ độ. */
+    public int waitMinutes = 10;
 
     /** Kết nối mô hình ngôn ngữ (tùy chọn) – API kiểu OpenAI, ví dụ Ollama / LM Studio / OpenAI. */
     public Llm llm = new Llm();

@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 
 /**
  * /lymeowz selftest – tự kiểm tra các phần phụ thuộc phiên bản Minecraft mà không cần người chơi:
- * tạo entity, dịch chuyển, giữ chunk, đổi chiều không gian, tự về nhà khi chủ offline, ngất, lưu dữ liệu.
+ * tạo entity, dịch chuyển, giữ chunk, đổi chiều không gian, tự về nhà khi không có ai, đặt tên, ngất, lưu dữ liệu.
  */
 public final class SelfTest {
     private SelfTest() {}
@@ -31,7 +31,6 @@ public final class SelfTest {
     private static final class Ctx {
         MinecraftServer server;
         Consumer<String> out;
-        UUID owner = UUID.fromString("00000000-0000-4000-8000-00000000c0de");
         UUID lyId;
         BlockPos home;
         double distBefore;
@@ -94,10 +93,14 @@ public final class SelfTest {
             if (e == null) return;
             Compat.placeAt(e, c.home.getX() + 0.5, c.home.getY(), c.home.getZ() + 0.5, 0f, 0f);
             c.lyId = e.getUUID();
-            CompanionStore.assign(c.owner, c.lyId, new CompanionStore.Spot("minecraft:overworld", c.home.getX(), c.home.getY(), c.home.getZ()));
+            CompanionStore.create(c.lyId, new CompanionStore.Spot("minecraft:overworld", c.home.getX(), c.home.getY(), c.home.getZ()));
             ow.addFreshEntity(e);
             e.setHome(ow, c.home);
-            c.check("đăng ký chủ", e.data() != null && c.owner.equals(e.getOwnerUuid()), "");
+            c.check("có dữ liệu riêng, chưa có tên", e.data() != null && e.displayName() == null && e.getCustomName() == null, "");
+            c.check("hiểu câu hỏi toạ độ", com.khanhly.lymeowz.chat.Brain.parse("cậu đang ở đâu vậy?") == com.khanhly.lymeowz.chat.Brain.Intent.WHERE
+                    && com.khanhly.lymeowz.chat.Brain.parse("tọa độ nào vậy") == com.khanhly.lymeowz.chat.Brain.Intent.WHERE
+                    && com.khanhly.lymeowz.chat.Brain.parse("nhà cậu ở đâu?") != com.khanhly.lymeowz.chat.Brain.Intent.WHERE
+                    && com.khanhly.lymeowz.chat.Brain.parse("đi theo mình") == com.khanhly.lymeowz.chat.Brain.Intent.FOLLOW, "");
         }));
         steps.add(new Step(20, "đợi cô ấy xuất hiện", c -> {
             // Chunk mới load cần vài tick mới cho truy cập entity (26.x không có spawn chunks): đợi tối đa 10 giây.
@@ -112,7 +115,7 @@ public final class SelfTest {
             boolean ok = e != null && e.teleportNear(ow, new BlockPos(far.getX(), y, far.getZ()), 0, 2);
             c.check("teleportNear cùng chiều", ok && e.position().distanceTo(Vec3.atCenterOf(far)) < 10, e == null ? "null" : e.blockPosition().toShortString());
         }));
-        steps.add(new Step(60, "chủ offline → tự đi về nhà", c -> {
+        steps.add(new Step(60, "không có ai → tự đi về nhà", c -> {
             LyMeowzEntity e = c.ly();
             c.check("vẫn được tick ở xa (chunk ticket)", e != null && e.tickCount > 50, e == null ? "null" : "tick " + e.tickCount);
             if (e != null) c.distBefore = e.position().distanceTo(Vec3.atBottomCenterOf(c.home));
@@ -136,10 +139,24 @@ public final class SelfTest {
             e.teleportNear(nether, base, 0, 2);
         }));
         steps.add(new Step(60, "kiểm tra Nether", c -> {
-            // Chủ đang offline nên vừa tới Nether cô ấy sẽ tự về nhà – vì vậy kiểm tra bằng sự kiện "được load ở Nether".
+            // Kiểm tra bằng sự kiện "được load ở Nether".
             LyMeowzEntity e = c.ly();
             c.check("đổi chiều không gian (giữ UUID + dữ liệu)", c.seenInNether && e != null && e.data() != null,
                     "đã thấy ở Nether: " + c.seenInNether);
+        }));
+        steps.add(new Step(0, "về lại Overworld + đặt tên", c -> {
+            LyMeowzEntity e = c.ly();
+            if (e == null) return;
+            e.teleportNear(ow, c.home, 0, 2);
+        }));
+        steps.add(new Step(20, "đặt tên bằng bảng tên", c -> {
+            LyMeowzEntity e = c.ly();
+            if (e != null) e.setCustomName(Component.literal("Mimi"));
+        }));
+        steps.add(new Step(30, "kiểm tra tên", c -> {
+            LyMeowzEntity e = c.ly();
+            c.check("nhớ tên được đặt", e != null && "Mimi".equals(e.displayName()) && e.data() != null && "Mimi".equals(e.data().name),
+                    e == null ? "null" : String.valueOf(e.displayName()));
         }));
         steps.add(new Step(5, "ngất khi kiệt sức", c -> {
             LyMeowzEntity e = c.ly();
@@ -148,17 +165,17 @@ public final class SelfTest {
         }));
         steps.add(new Step(5, "kiểm tra ngất", c -> {
             LyMeowzEntity e = c.ly();
-            c.check("không chết, về nhà nghỉ", e != null && e.isAlive() && e.getMode() == LyMeowzEntity.Mode.HOME
+            c.check("không chết, về nhà nghỉ", e != null && e.isAlive() && e.getHealth() >= 9
                     && e.level().dimension().equals(Level.OVERWORLD) && e.position().distanceTo(Vec3.atBottomCenterOf(c.home)) < 6,
-                    e == null ? "null" : e.getMode() + " " + Compat.dimId(e.level().dimension()) + " " + e.blockPosition().toShortString());
+                    e == null ? "null" : Compat.dimId(e.level().dimension()) + " " + e.blockPosition().toShortString());
         }));
         steps.add(new Step(0, "lưu + xóa", c -> {
             CompanionStore.markDirty();
             CompanionStore.save();
-            c.check("lưu lymeowz.json", CompanionStore.byOwner(c.owner) != null, "");
+            c.check("lưu lymeowz.json", CompanionStore.get(c.lyId) != null, "");
             LyMeowzEntity e = c.ly();
             if (e != null) e.discard();
-            c.check("xóa cô ấy → xóa dữ liệu", CompanionStore.byOwner(c.owner) == null, "");
+            c.check("xóa cô ấy → xóa dữ liệu", CompanionStore.get(c.lyId) == null, "");
         }));
     }
 

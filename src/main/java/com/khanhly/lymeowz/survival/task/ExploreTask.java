@@ -56,7 +56,7 @@ public class ExploreTask extends Task {
 
     /** Chọn một vùng chưa đi qua, cách chủ ≤ min(60, followRadius), tránh chỗ từng gặp nguy hiểm. */
     public static BlockPos pickTarget(LyMeowzEntity ly, ServerLevel level, BlockPos owner) {
-        int max = Math.min(60, LyConfig.get().followRadius);
+        int max = Math.min(60, LyConfig.get().stayNearPlayer + 20);
         BlockPos best = null;
         double bestScore = -1e9;
         for (int i = 0; i < 16; i++) {

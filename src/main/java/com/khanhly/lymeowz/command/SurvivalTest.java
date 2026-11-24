@@ -38,7 +38,7 @@ public final class SurvivalTest {
     private SurvivalTest() {}
 
     private static final UUID OWNER = UUID.fromString("00000000-0000-4000-8000-0000000051ee");
-    private static final int MAX_TICKS = 20 * 60 * 20; // 20 phút trong game
+    private static final int MAX_TICKS = 20 * 60 * 60; // 60 phút trong game (3 ngày đêm)
 
     private static MinecraftServer server;
     private static Consumer<String> out;
@@ -56,9 +56,16 @@ public final class SurvivalTest {
         return server != null;
     }
 
-    /** Cho LyMeowzEntity.getOwner() tìm thấy người chơi giả. */
-    public static ServerPlayer fakeOwner(UUID id) {
+    private static boolean slept;
+
+    /** Cho LyMeowzEntity tìm thấy người chơi giả theo UUID. */
+    public static ServerPlayer fakePlayer(UUID id) {
         return owner != null && OWNER.equals(id) ? owner : null;
+    }
+
+    /** Người chơi giả (nếu đang chạy thử và ở gần). */
+    public static ServerPlayer fakeNear(net.minecraft.world.entity.Entity e, double range) {
+        return owner != null && owner.level() == e.level() && owner.distanceToSqr(e) < range * range ? owner : null;
     }
 
     public static void start(MinecraftServer srv, Consumer<String> output) {
@@ -66,12 +73,13 @@ public final class SurvivalTest {
         out = output;
         ticks = 0;
         ate = false;
+        slept = false;
         milestones.clear();
         ServerLevel ow = srv.overworld();
         srv.getCommands().performPrefixedCommand(srv.createCommandSourceStack().withSuppressedOutput(), "time set day");
 
         BlockPos c0 = new BlockPos(200, 0, 200);
-        for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) {
+        for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) {
             Compat.keepChunk(ow, c0.offset(dx * 16, 0, dz * 16), 2);
             ow.getChunk(c0.offset(dx * 16, 0, dz * 16)); // load trước rồi mới đo độ cao mặt đất
         }
@@ -79,17 +87,33 @@ public final class SurvivalTest {
         center = new BlockPos(200, y, 200);
 
         // Cây tự nhiên.
-        int[][] trees = {{8, 3}, {-7, 6}, {5, -9}, {-9, -5}, {9, 9}, {-4, -10}};
+        int[][] trees = {{8, 3}, {-7, 6}, {5, -9}, {-9, -5}, {9, 9}, {-4, -10}, {14, -6}, {-14, 10}, {12, 14}, {-2, 16}, {16, 2}, {-16, -12},
+                {22, -4}, {-21, 3}, {4, 23}, {-6, -22}, {19, 17}, {-19, -18}, {24, 10}, {-24, 14}, {10, -24}, {-12, 24}};
         for (int[] t : trees) tree(ow, center.offset(t[0], 0, t[1]), 5, false);
         // "Nhà" của chủ: cột gỗ với lá người chơi đặt → không được chặt.
         pillar = tree(ow, center.offset(3, 0, -3), 4, true);
         // Đồi đá có quặng than và sắt lộ ra ngoài.
         BlockPos hill = center.offset(-12, 0, 0);
-        for (int dx = 0; dx < 5; dx++) for (int dz = -3; dz <= 3; dz++) for (int dy = 0; dy < 3; dy++)
+        for (int dx = -4; dx < 5; dx++) for (int dz = -5; dz <= 5; dz++) for (int dy = 0; dy < 3; dy++)
             ow.setBlockAndUpdate(hill.offset(dx, dy, dz), Blocks.STONE.defaultBlockState());
+        // Cỏ để nhặt hạt giống.
+        for (int i = 0; i < 80; i++) {
+            BlockPos g = center.offset(ow.getRandom().nextIntBetweenInclusive(-18, 18), 0, ow.getRandom().nextIntBetweenInclusive(-18, 18));
+            int gy = ow.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getX(), g.getZ());
+            BlockPos gp = new BlockPos(g.getX(), gy, g.getZ());
+            if (ow.getBlockState(gp.below()).is(Blocks.GRASS_BLOCK) && ow.getBlockState(gp).isAir())
+                ow.setBlockAndUpdate(gp, Blocks.SHORT_GRASS.defaultBlockState());
+        }
         int[][] ores = {{4, 0, -2, 0}, {4, 1, -1, 0}, {4, 0, 1, 0}, {4, 2, 0, 0}, {4, 1, 2, 1}, {4, 0, 3, 1}, {4, 1, -3, 1}, {4, 0, 0, 1}};
         for (int[] o : ores)
             ow.setBlockAndUpdate(hill.offset(o[0], o[1], o[2]), (o[3] == 0 ? Blocks.COAL_ORE : Blocks.IRON_ORE).defaultBlockState());
+        // Đàn cừu (len làm giường).
+        for (int i = 0; i < 5; i++) {
+            var sheep = EntityTypes.SHEEP.create(ow, EntitySpawnReason.COMMAND);
+            if (sheep == null) continue;
+            Compat.placeAt(sheep, center.getX() - 6 - i % 3, y, center.getZ() + 8 + i / 3, 0, 0);
+            ow.addFreshEntity(sheep);
+        }
         // Đàn bò.
         for (int i = 0; i < 6; i++) {
             Cow cow = EntityTypes.COW.create(ow, EntitySpawnReason.COMMAND);
@@ -105,7 +129,7 @@ public final class SurvivalTest {
         // LyMeowz tay trắng, hơi đói.
         LyMeowzEntity ly = Compat.create(LyMeowzMod.LYMEOWZ, ow);
         Compat.placeAt(ly, center.getX() + 2.5, y, center.getZ() + 0.5, 0, 0);
-        CompanionStore.assign(OWNER, ly.getUUID(), new CompanionStore.Spot("minecraft:overworld", center.getX(), y, center.getZ()));
+        CompanionStore.create(ly.getUUID(), new CompanionStore.Spot("minecraft:overworld", center.getX(), y, center.getZ()));
         ow.addFreshEntity(ly);
         lyId = ly.getUUID();
         ly.addHunger(-8);
@@ -164,33 +188,56 @@ public final class SurvivalTest {
         mark("nướng chín thịt", all.has(Items.COOKED_BEEF));
         mark("sắt thỏi", all.has(Items.IRON_INGOT) || Survival.bestTier(all, Tools.Kind.PICKAXE) >= 3);
         mark("cuốc sắt", Survival.bestTier(all, Tools.Kind.PICKAXE) >= 3);
+        mark("xây nhà", com.khanhly.lymeowz.survival.Roadmap.has(ly, "house"));
+        mark("làm ruộng", com.khanhly.lymeowz.survival.Roadmap.has(ly, "farm"));
+        mark("làm chuồng", com.khanhly.lymeowz.survival.Roadmap.has(ly, "pen"));
+        mark("đặt giường", com.khanhly.lymeowz.survival.Roadmap.has(ly, "bed"));
+        if (ly.isSleeping()) slept = true;
+        mark("ngủ trên giường", slept);
         if (ly.getHunger() > lastHunger) ate = true;
         lastHunger = ly.getHunger();
         mark("tự ăn khi đói", ate);
 
         if (ticks % 200 == 0 && ticks <= 2400) {
             var t = ly.getTarget();
-            log(String.format("  · t=%d mode=%s task=%s target=%s nav=%s distOwner=%.1f pos=%s hp=%.1f", ticks, ly.getMode(), ly.survival.currentName(),
+            log(String.format("  · t=%d %s task=%s target=%s nav=%s distOwner=%.1f pos=%s hp=%.1f", ticks, ly.request() == null ? "tự do" : ly.request().type, ly.survival.currentName(),
                     t == null ? "-" : t.getType().toShortString() + (t.isAlive() ? "" : "(chết)"), ly.getNavigation().isDone() ? "done" : "moving",
                     ly.distanceTo(owner), ly.blockPosition().toShortString(), ly.getHealth()));
         }
         if (ticks % 1200 == 0) {
             var m = ly.mind().data();
-            log(String.format("[%2d phút] đang %s (%s), đói %d, máu %.0f | sợ %.0f vui %.0f chán %.0f tò mò %.0f năng lượng %.0f giao tiếp %.0f → %s | nhớ %d nơi | %s",
-                    ticks / 1200, ly.survival.currentName(), ly.survival.currentReason(), ly.getHunger(), ly.getHealth(),
+            log(String.format("[%2d phút] %s, đang %s (%s), đói %d, máu %.0f | sợ %.0f vui %.0f chán %.0f tò mò %.0f năng lượng %.0f giao tiếp %.0f → %s | nhớ %d nơi | %s",
+                    ticks / 1200, com.khanhly.lymeowz.survival.Roadmap.current(ly).title, ly.isSleeping() ? "ngủ" : ly.survival.currentName(), ly.survival.currentReason(), ly.getHunger(), ly.getHealth(),
                     m.fear, m.joy, m.boredom, m.curiosity, m.energy, m.social, ly.mind().dominantFeeling(), m.places.size(),
                     Survival.summary(ly.inventoryWithHand())));
         }
         // Trò chuyện thử với chủ giả ở vài thời điểm.
+        if (ticks == 6000) {
+            // Giả lập đã làm thân được một thời gian.
+            var r = ly.mind().data().relations.computeIfAbsent(OWNER.toString(), k -> new com.khanhly.lymeowz.mind.MindData.Relation());
+            r.name = "LyTester";
+            r.affinity = 45;
+            log("  (độ thân với LyTester → 45: bạn bè)");
+        }
         String[] chats = switch (ticks) {
-            case 600 -> new String[]{"chào Ly", "cậu tên gì?", "cậu thích gì?"};
-            case 3600 -> new String[]{"ly ơi cậu đói không?", "cậu đang làm gì vậy?", "cậu dễ thương quá"};
-            case 9600 -> new String[]{"cậu thấy sao?", "mỏ đá ở đâu?", "rừng ở đâu?", "trong túi có gì?"};
+            case 600 -> new String[]{"chào", "cậu tên gì?", "đi theo mình đi", "cậu đang ở đâu vậy?"};
+            case 3600 -> new String[]{"cậu đói không?", "cậu đang làm gì vậy?", "cậu dễ thương quá"};
+            case 6020 -> new String[]{"theo mình nào", "tự do đi", "tọa độ của cậu là gì?", "kế hoạch của cậu là gì?"};
+            case 9600 -> new String[]{"cậu thấy sao?", "mỏ đá ở đâu?", "trong túi có gì?", "nhà cậu ở đâu?"};
             case 16800 -> new String[]{"đồ ngốc", "kể chuyện đi", "hôm nay làm được gì?", "cậu có thích mình không?", "blorp xyz?"};
             default -> null;
         };
-        if (chats != null) for (String c : chats) { log("  <LyTester> " + c); ly.brain.hear(owner, c); }
-        boolean allDone = milestones.size() >= 15;
+        if (chats != null) for (String c : chats) {
+            log("  <LyTester> " + c);
+            ly.brain.hear(owner, c);
+            if (ly.request() != null) log("    → yêu cầu: " + ly.request().type);
+        }
+        if (ticks == 6020 && ly.request() != null && "WAIT".equals(ly.request().type)) {
+            // Đi tới chỗ cô ấy đợi để cô ấy dỡ trại.
+            owner.snapTo(ly.getX() + 2, ly.getY(), ly.getZ());
+        }
+        if (ticks == 6400) owner.snapTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5);
+        boolean allDone = milestones.size() >= 20;
         if (allDone && !ly.survival.busy() && ticks % 100 == 0) finish("xong mọi mốc");
         else if (ticks >= MAX_TICKS) finish("hết giờ");
     }
@@ -207,28 +254,34 @@ public final class SurvivalTest {
         server.tickRateManager().stopSprinting();
         LyMeowzEntity ly = ow.getEntity(lyId) instanceof LyMeowzEntity e ? e : null;
         String[] all = {"có gỗ", "cuốc gỗ", "rìu gỗ", "có đá cuội", "cuốc đá", "rìu đá", "kiếm đá", "lò nung", "than",
-                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "sắt thỏi", "cuốc sắt"};
+                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "xây nhà", "làm ruộng", "làm chuồng", "đặt giường", "ngủ trên giường"};
         int ok = 0;
         StringBuilder missing = new StringBuilder();
         for (String m : all) if (milestones.containsKey(m)) ok++; else missing.append(" ").append(m);
         boolean pillarOk = pillar.stream().allMatch(p -> ow.getBlockState(p).is(Blocks.OAK_LOG));
         int litter = 0;
-        for (BlockPos p : BlockPos.betweenClosed(center.offset(-24, -3, -24), center.offset(24, 6, 24))) {
+        BlockPos house = ly == null ? null : ly.structure("house");
+        for (BlockPos p : BlockPos.betweenClosed(center.offset(-30, -3, -30), center.offset(30, 6, 30))) {
             BlockState st = ow.getBlockState(p);
-            if (st.is(Blocks.CRAFTING_TABLE) || st.is(Blocks.FURNACE)) litter++;
+            boolean inHouse = house != null && p.getX() >= house.getX() && p.getX() < house.getX() + 5
+                    && p.getZ() >= house.getZ() && p.getZ() < house.getZ() + 5;
+            if ((st.is(Blocks.CRAFTING_TABLE) || st.is(Blocks.FURNACE)) && !inHouse) litter++;
         }
         int cows = ow.getEntitiesOfClass(Cow.class, new net.minecraft.world.phys.AABB(center).inflate(40)).size();
         log("== Kết quả (" + why + ", " + ticks / 1200 + " phút trong game) ==");
         log((ok == all.length ? "PASS" : "FAIL") + " tiến trình sinh tồn " + ok + "/" + all.length + (missing.length() > 0 ? " — thiếu:" + missing : ""));
         log((pillarOk ? "PASS" : "FAIL") + " không chặt cột gỗ có lá người chơi đặt (giả làm nhà)");
-        log((litter == 0 ? "PASS" : "FAIL") + " không bỏ bàn chế tạo / lò lại thế giới (" + litter + ")");
+        log((litter == 0 ? "PASS" : "FAIL") + " không bỏ bàn chế tạo / lò lại ngoài nhà (" + litter + ")");
         log((cows >= 2 ? "PASS" : "FAIL") + " chừa lại ít nhất 2 con bò (" + cows + ")");
-        if (ly != null) log("Túi đồ cuối: " + Survival.summary(ly.inventoryWithHand()));
+        if (ly != null) {
+            log("Túi đồ cuối: " + Survival.summary(ly.inventoryWithHand()) + " | rương: " + ly.storedCount() + " món");
+            log("Công trình: " + (ly.data() == null ? "-" : ly.data().structures.keySet()));
+            log(com.khanhly.lymeowz.survival.Roadmap.describe(ly, true));
+        }
         int pass = (ok == all.length ? 1 : 0) + (pillarOk ? 1 : 0) + (litter == 0 ? 1 : 0) + (cows >= 2 ? 1 : 0);
         log("== survival: " + pass + "/4 PASS ==");
         if (ly != null) ly.discard();
-        CompanionStore.Data d = CompanionStore.byOwner(OWNER);
-        if (d != null) CompanionStore.remove(d);
+        if (ly != null) CompanionStore.remove(ly.getUUID());
         server = null;
         owner = null;
     }

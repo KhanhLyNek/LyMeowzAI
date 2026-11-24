@@ -23,7 +23,15 @@ public final class ItemNames {
             Map.entry("cooked_mutton", "thịt cừu nướng"), Map.entry("apple", "táo"), Map.entry("bread", "bánh mì"),
             Map.entry("wheat_seeds", "hạt giống"), Map.entry("feather", "lông gà"), Map.entry("white_wool", "len"),
             Map.entry("oak_log", "gỗ sồi"), Map.entry("oak_planks", "ván sồi"), Map.entry("oak_sapling", "cây sồi con"),
-            Map.entry("birch_log", "gỗ bạch dương"), Map.entry("spruce_log", "gỗ vân sam"), Map.entry("dirt", "đất"));
+            Map.entry("birch_log", "gỗ bạch dương"), Map.entry("spruce_log", "gỗ vân sam"), Map.entry("dirt", "đất"),
+            Map.entry("oak_fence", "hàng rào"), Map.entry("oak_fence_gate", "cổng rào"), Map.entry("oak_door", "cửa gỗ"),
+            Map.entry("chest", "rương"), Map.entry("white_bed", "giường"), Map.entry("wheat", "lúa mì"), Map.entry("carrot", "cà rốt"),
+            Map.entry("potato", "khoai tây"), Map.entry("wooden_hoe", "cuốc làm đất gỗ"), Map.entry("stone_hoe", "cuốc làm đất đá"),
+            Map.entry("shears", "kéo"), Map.entry("bucket", "xô"), Map.entry("water_bucket", "xô nước"), Map.entry("shield", "khiên"),
+            Map.entry("iron_helmet", "mũ sắt"), Map.entry("iron_chestplate", "áo giáp sắt"), Map.entry("iron_leggings", "quần giáp sắt"),
+            Map.entry("iron_boots", "giày sắt"), Map.entry("diamond", "kim cương"), Map.entry("diamond_pickaxe", "cuốc kim cương"),
+            Map.entry("diamond_sword", "kiếm kim cương"), Map.entry("oak_boat", "thuyền"), Map.entry("campfire", "lửa trại"),
+            Map.entry("raw_copper", "đồng thô"));
 
     public static String of(Item item) {
         String path = BuiltInRegistries.ITEM.getKey(item).getPath();

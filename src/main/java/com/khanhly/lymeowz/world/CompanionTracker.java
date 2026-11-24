@@ -4,6 +4,7 @@ import com.khanhly.lymeowz.LyMeowzMod;
 import com.khanhly.lymeowz.compat.Compat;
 import com.khanhly.lymeowz.config.LyConfig;
 import com.khanhly.lymeowz.entity.LyMeowzEntity;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -14,57 +15,71 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Giữ liên lạc giữa người chơi và LyMeowz của họ:
+ * Giữ cho cô ấy "sống" như một người chơi:
  * <ul>
- *   <li>Người chơi vào game → load chunk nơi cô ấy ngủ, tìm cô ấy, rồi cô ấy tự chạy/dịch chuyển tới.</li>
- *   <li>Mỗi 5 giây: nếu chủ online mà cô ấy nằm trong chunk đã unload (ví dụ chủ /tp đi xa) → kéo cô ấy về.</li>
- *   <li>Chống nhân bản: chỉ một LyMeowz cho mỗi người chơi.</li>
+ *   <li>Server bật lên → load chỗ cô ấy đang ở để cô ấy tiếp tục cuộc sống (kể cả khi không ai ở gần).</li>
+ *   <li>Lần đầu có người chơi vào thế giới → cô ấy xuất hiện ở đâu đó cách 40–60 block (một lần cho cả thế giới).</li>
+ *   <li>Không tìm thấy cô ấy trong thế giới (entity bị mất) → tạo lại ở chỗ cũ với nguyên trí nhớ, túi đồ, nhà cửa.</li>
+ *   <li>Người chơi giết con quái đang đánh cô ấy → cô ấy ghi nhận (thân hơn).</li>
  * </ul>
  */
 public final class CompanionTracker {
     private CompanionTracker() {}
 
-    private static final int RECALL_TIMEOUT = 200; // 10 giây
-
-    private static final class Recall {
-        int ticksLeft = RECALL_TIMEOUT;
-        final boolean greet;
-        Recall(boolean greet) { this.greet = greet; }
-    }
-
-    private static final Map<UUID, Recall> PENDING = new HashMap<>();
-    private static final Map<UUID, Integer> PENDING_SPAWN = new HashMap<>();
+    private static final int RECALL_TIMEOUT = 20 * 30;
+    private static final Map<UUID, Integer> PENDING = new HashMap<>();
+    private static int spawnCountdown = -1;
+    @Nullable private static UUID spawnFor;
 
     public static void init() {
-        ServerLifecycleEvents.SERVER_STARTED.register(CompanionStore::load);
+        ServerLifecycleEvents.SERVER_STARTED.register(s -> { CompanionStore.load(s); recallAll(s); });
         ServerLifecycleEvents.SERVER_STOPPING.register(s -> CompanionStore.save());
-        ServerLifecycleEvents.SERVER_STOPPED.register(s -> { CompanionStore.unload(); PENDING.clear(); PENDING_SPAWN.clear(); });
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.player));
+        ServerLifecycleEvents.SERVER_STOPPED.register(s -> { CompanionStore.unload(); PENDING.clear(); spawnCountdown = -1; });
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(server, handler.player));
         ServerTickEvents.END_SERVER_TICK.register(CompanionTracker::tick);
         ServerEntityEvents.ENTITY_LOAD.register(CompanionTracker::onLoad);
-        if (Boolean.getBoolean("lymeowz.debug")) ServerEntityEvents.ENTITY_UNLOAD.register((e, l) -> {
-            if (e instanceof LyMeowzEntity) LyMeowzMod.LOGGER.info("[debug] UNLOAD {} removed={} reason={}", e.blockPosition().toShortString(), e.isRemoved(), e.getRemovalReason());
-        });
+        ServerLivingEntityEvents.AFTER_DEATH.register(CompanionTracker::onDeath);
     }
 
-    /** Tìm LyMeowz (đang được load) của người chơi. */
+    /** Mọi LyMeowz đang được load. */
+    public static List<LyMeowzEntity> loaded(MinecraftServer server) {
+        List<LyMeowzEntity> out = new ArrayList<>();
+        for (CompanionStore.Data d : CompanionStore.list()) {
+            LyMeowzEntity ly = find(server, d);
+            if (ly != null) out.add(ly);
+        }
+        return out;
+    }
+
+    /** LyMeowz gần người chơi nhất (đang được load). */
     @Nullable
-    public static LyMeowzEntity find(MinecraftServer server, UUID owner) {
-        CompanionStore.Data d = CompanionStore.byOwner(owner);
-        return d == null ? null : findById(server, d);
+    public static LyMeowzEntity nearest(ServerPlayer p) {
+        LyMeowzEntity best = null;
+        double bd = Double.MAX_VALUE;
+        for (LyMeowzEntity ly : loaded(((ServerLevel) p.level()).getServer())) {
+            double d = ly.level() == p.level() ? ly.distanceToSqr(p) : 1e12;
+            if (d < bd) { bd = d; best = ly; }
+        }
+        return best;
     }
 
     @Nullable
-    private static LyMeowzEntity findById(MinecraftServer server, CompanionStore.Data d) {
+    public static LyMeowzEntity find(MinecraftServer server, CompanionStore.Data d) {
         UUID id;
         try { id = UUID.fromString(d.companion); } catch (IllegalArgumentException e) { return null; }
         ResourceKey<Level> key = d.last == null ? null : Compat.dim(d.last.dim);
@@ -76,101 +91,114 @@ public final class CompanionTracker {
         return null;
     }
 
-    private static void onJoin(ServerPlayer player) {
-        if (CompanionStore.byOwner(player.getUUID()) == null) {
-            if (LyConfig.get().autoSpawnOnFirstJoin) PENDING_SPAWN.put(player.getUUID(), 60);
-        } else {
-            PENDING.put(player.getUUID(), new Recall(true));
-        }
+    private static void recallAll(MinecraftServer server) {
+        for (CompanionStore.Data d : CompanionStore.list()) PENDING.put(UUID.fromString(d.companion), RECALL_TIMEOUT);
     }
 
-    /** Load chỗ cô ấy đang ngủ để tìm cô ấy (dùng cho lệnh khi cô ấy chưa được load). */
-    public static void recall(UUID owner) {
-        PENDING.putIfAbsent(owner, new Recall(false));
+    private static void onJoin(MinecraftServer server, ServerPlayer player) {
+        if (CompanionStore.isEmpty() && LyConfig.get().spawnOnFirstJoin && spawnCountdown < 0) {
+            spawnCountdown = 100;
+            spawnFor = player.getUUID();
+        }
     }
 
     private static void tick(MinecraftServer server) {
         com.khanhly.lymeowz.command.SelfTest.tick(server);
         com.khanhly.lymeowz.command.SurvivalTest.tick(server);
-        // Tạo mới cho người chơi lần đầu vào thế giới (đợi 3 giây cho thế giới load xong).
-        for (Iterator<Map.Entry<UUID, Integer>> it = PENDING_SPAWN.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<UUID, Integer> s = it.next();
-            int left = s.getValue() - 1;
-            if (left > 0) { s.setValue(left); continue; }
-            it.remove();
-            ServerPlayer p = server.getPlayerList().getPlayer(s.getKey());
-            if (p != null && CompanionStore.byOwner(p.getUUID()) == null) {
-                LyMeowzEntity ly = spawnFor(p);
-                if (ly != null) { ly.speak(com.khanhly.lymeowz.speech.Speech.Act.FIRST_MEET); ly.hearts(); }
+
+        if (spawnCountdown > 0 && --spawnCountdown == 0) {
+            spawnCountdown = -1;
+            ServerPlayer p = spawnFor == null ? null : server.getPlayerList().getPlayer(spawnFor);
+            if (p != null && CompanionStore.isEmpty()) {
+                LyMeowzEntity ly = spawnNear(p, 40, 60);
+                if (ly != null) LyMeowzMod.LOGGER.info("Có một cô gái xuất hiện ở {}", ly.blockPosition().toShortString());
             }
         }
 
-        // Đang đi tìm cô ấy.
-        for (Iterator<Map.Entry<UUID, Recall>> it = PENDING.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<UUID, Recall> r = it.next();
-            ServerPlayer owner = server.getPlayerList().getPlayer(r.getKey());
-            CompanionStore.Data d = CompanionStore.byOwner(r.getKey());
-            if (owner == null || d == null) { it.remove(); continue; }
-
-            LyMeowzEntity ly = findById(server, d);
-            if (ly != null) {
-                it.remove();
-                if (r.getValue().greet) ly.onOwnerReturned(owner);
-                continue;
-            }
+        // Đang đi tìm cô ấy (load chunk chỗ cô ấy ở lần cuối).
+        for (Iterator<Map.Entry<UUID, Integer>> it = PENDING.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<UUID, Integer> r = it.next();
+            CompanionStore.Data d = CompanionStore.get(r.getKey());
+            if (d == null) { it.remove(); continue; }
+            if (find(server, d) != null) { it.remove(); continue; }
             ResourceKey<Level> key = d.last == null ? null : Compat.dim(d.last.dim);
             ServerLevel l = key == null ? null : server.getLevel(key);
-            if (l != null && r.getValue().ticksLeft % 20 == 0) {
-                Compat.recallChunk(l, new BlockPos(d.last.x, d.last.y, d.last.z));
-            }
-            if (--r.getValue().ticksLeft <= 0) {
-                it.remove();
-                LyMeowzMod.LOGGER.warn("Không tìm thấy LyMeowz của {}, tạo lại cô ấy.", owner.getName().getString());
-                LyMeowzEntity fresh = spawnFor(owner);
-                if (fresh != null) fresh.speak(com.khanhly.lymeowz.speech.Speech.Act.WELCOME_BACK);
-            }
-        }
-
-        // Kiểm tra định kỳ: chủ online, cô ấy đang đi theo mà không được load → đi tìm.
-        if (server.getTickCount() % 100 == 0) {
-            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-                if (PENDING.containsKey(p.getUUID())) continue;
-                CompanionStore.Data d = CompanionStore.byOwner(p.getUUID());
-                if (d != null && "FOLLOW".equals(d.mode) && findById(server, d) == null) {
-                    PENDING.put(p.getUUID(), new Recall(false));
-                }
+            if (l != null && r.getValue() % 20 == 0) Compat.recallChunk(l, new BlockPos(d.last.x, d.last.y, d.last.z));
+            int left = r.getValue() - 1;
+            if (left > 0) { r.setValue(left); continue; }
+            it.remove();
+            if (l != null) {
+                LyMeowzMod.LOGGER.warn("Không tìm thấy LyMeowz {}, tạo lại ở chỗ cũ.", d.companion);
+                respawn(l, d);
             }
         }
 
+        // Kiểm tra định kỳ: cô ấy luôn phải có mặt trong thế giới.
+        if (server.getTickCount() % 200 == 0) {
+            for (CompanionStore.Data d : CompanionStore.list()) {
+                UUID id = UUID.fromString(d.companion);
+                if (!PENDING.containsKey(id) && find(server, d) == null) PENDING.put(id, RECALL_TIMEOUT);
+            }
+        }
         if (server.getTickCount() % 1200 == 0) CompanionStore.save();
     }
 
     private static void onLoad(Entity entity, ServerLevel level) {
         com.khanhly.lymeowz.command.SelfTest.onEntityLoad(entity, level);
         if (!(entity instanceof LyMeowzEntity ly)) return;
-        if (CompanionStore.byCompanion(ly.getUUID()) == null && CompanionStore.isRetired(ly.getUUID())) {
-            // Bản cũ bị bỏ lại (đã có bản mới thay thế) → gỡ đi để không bị trùng.
+        if (CompanionStore.get(ly.getUUID()) == null && CompanionStore.isRetired(ly.getUUID())) {
             LyMeowzMod.LOGGER.info("Gỡ bản LyMeowz cũ {}", ly.getUUID());
             level.getServer().execute(ly::discard);
         }
     }
 
-    /** Tạo LyMeowz mới cạnh người chơi (bản cũ – nếu có – được đánh dấu để tự gỡ). */
-    @Nullable
-    public static LyMeowzEntity spawnFor(ServerPlayer player) {
-        ServerLevel level = (ServerLevel) player.level();
-        LyMeowzEntity old = find(level.getServer(), player.getUUID());
+    /** Người chơi giết con quái đang đánh / đứng sát cô ấy = cứu cô ấy. */
+    private static void onDeath(LivingEntity dead, net.minecraft.world.damagesource.DamageSource source) {
+        if (!(dead instanceof Enemy) || !(dead instanceof Mob mob) || !(source.getEntity() instanceof ServerPlayer p)) return;
+        if (!(dead.level() instanceof ServerLevel level)) return;
+        for (LyMeowzEntity ly : level.getEntitiesOfClass(LyMeowzEntity.class, dead.getBoundingBox().inflate(10))) {
+            boolean targeting = mob.getTarget() == ly || ly.getTarget() == mob || ly.getLastHurtByMob() == mob;
+            if (targeting || (dead.distanceTo(ly) < 5 && ly.getHealth() < ly.getMaxHealth())) ly.savedBy(p, dead);
+        }
+    }
 
+    /** Tạo cô ấy ở một chỗ trên mặt đất cách người chơi {@code min}–{@code max} block. */
+    @Nullable
+    public static LyMeowzEntity spawnNear(ServerPlayer player, int min, int max) {
+        ServerLevel level = (ServerLevel) player.level();
         LyMeowzEntity ly = Compat.create(LyMeowzMod.LYMEOWZ, level);
         if (ly == null) return null;
         BlockPos at = player.blockPosition();
-        Compat.placeAt(ly, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, player.getYRot() + 180f, 0f);
-        // Gán trước: dữ liệu (nhà, lịch sử trò chuyện...) chuyển sang bản mới, bản cũ thành "nghỉ hưu".
-        ly.setOwner(player);
-        ly.setMode(LyMeowzEntity.Mode.FOLLOW);
-        if (old != null) old.discard();
+        for (int i = 0; i < 30; i++) {
+            double ang = player.getRandom().nextDouble() * Math.PI * 2;
+            int r = min + player.getRandom().nextInt(Math.max(1, max - min));
+            int x = at.getX() + (int) (Math.cos(ang) * r), z = at.getZ() + (int) (Math.sin(ang) * r);
+            if (level.dimensionType().hasCeiling()) break;
+            Compat.keepChunk(level, new BlockPos(x, 0, z), 1);
+            level.getChunk(x >> 4, z >> 4);
+            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            BlockPos p = new BlockPos(x, y, z);
+            if (!level.getFluidState(p.below()).isEmpty() || !level.getBlockState(p.below()).isSolid()) continue;
+            at = p;
+            break;
+        }
+        Compat.placeAt(ly, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, player.getRandom().nextFloat() * 360f, 0f);
+        CompanionStore.create(ly.getUUID(), new CompanionStore.Spot(Compat.dimId(level.dimension()), at.getX(), at.getY(), at.getZ()));
         level.addFreshEntity(ly);
-        ly.teleportNear(level, at, 1, 3);
+        if (at.equals(player.blockPosition())) ly.teleportNear(level, at, 2, 4);
+        return ly;
+    }
+
+    /** Tạo lại cô ấy ở chỗ cũ, giữ nguyên dữ liệu (bản cũ – nếu còn ở đâu đó – sẽ tự gỡ). */
+    @Nullable
+    public static LyMeowzEntity respawn(ServerLevel level, CompanionStore.Data d) {
+        LyMeowzEntity ly = Compat.create(LyMeowzMod.LYMEOWZ, level);
+        if (ly == null) return null;
+        BlockPos at = d.last == null ? Compat.worldSpawn(level) : new BlockPos(d.last.x, d.last.y, d.last.z);
+        Compat.placeAt(ly, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0f, 0f);
+        CompanionStore.transfer(UUID.fromString(d.companion), ly.getUUID());
+        level.addFreshEntity(ly);
+        ly.teleportNear(level, at, 0, 3);
         return ly;
     }
 }

@@ -29,7 +29,7 @@ public final class Speech {
         FIRST_MEET, GREET, WELCOME_BACK, START, DONE, FAILED, CRAFTED, DISCOVERY, FEELING, SMALLTALK,
         THANKS, GIFT_THANKS, PRAISED, INSULTED, CONFUSED, HURT_BY_OWNER, FAINT, FOUND_YOU, SEARCHING,
         NIGHT, ACK, REFUSE, OWNER_SLEEP, GO_HOME, ARRIVED_HOME, HOME_SET, STRANGER, HUNGRY, GIVE, GIVE_NOTHING,
-        FIGHT, SCARED, BYE
+        FIGHT, SCARED, BYE, NOT_CLOSE, WAITING, MET_AT_SPOT, NAMED, SAVED_THANKS, SHY, RELEASED, PLAN
     }
 
     /** Nội dung cần nói. */
@@ -69,10 +69,10 @@ public final class Speech {
             r = ly.getRandom();
             m = ly.mind().data();
             p = m.personality;
-            affinity = listener == null ? 30 : ly.mind().affinity(listener.getUUID());
+            affinity = listener == null ? 0 : ly.mind().affinity(listener.getUUID());
             boolean close = affinity > 60;
             self = affinity < -30 ? "tôi" : (close && p.cheerful > 0.6f && r.nextInt(3) == 0 ? "tớ" : "mình");
-            you = affinity < -30 ? "bạn" : (affinity < 10 && listener != null && !ly.isOwner(listener) ? "bạn" : "cậu");
+            you = affinity < 40 ? "bạn" : "cậu";
             name = listener == null ? null : listener.getName().getString();
             mood = ly.mind().dominantFeeling();
         }
@@ -90,7 +90,7 @@ public final class Speech {
         }
 
         String opener() {
-            if (!chance(0.25f + 0.35f * p.talkative)) return "";
+            if (!chance(0.15f + 0.25f * p.talkative) || affinity < 15) return "";
             return switch (mood) {
                 case "JOY" -> pick("Oa", "Hehe", "Yay", "A ha", "Hihi");
                 case "FEAR" -> pick("Ơ...", "Á", "Hức", "U-ưm");
@@ -110,7 +110,7 @@ public final class Speech {
                 case "FEAR" -> pick("...", " đó...", "!");
                 case "SAD", "TIRED", "LONELY" -> pick("...", " nha...", ".");
                 case "BORED" -> pick("...", " ha.", ".");
-                case "CURIOUS" -> pick("!", " nè!", " ha?");
+                case "CURIOUS" -> pick("!", " nè!", "~");
                 default -> pick(" nhé", " nha", ".", "~", " nè");
             };
             if (affinity < -30) e = pick(".", "...");
@@ -126,7 +126,7 @@ public final class Speech {
     // ------------------------------------------------------------------ dựng câu
 
     public static String build(LyMeowzEntity ly, Act act, Ctx c) {
-        Voice v = new Voice(ly, c.listener != null ? c.listener : ly.getOwner());
+        Voice v = new Voice(ly, c.listener != null ? c.listener : ly.focusPlayer());
         String core = core(ly, v, act, c);
         if (core == null || core.isEmpty()) return "";
         String open = act == Act.CONFUSED || act == Act.PRAISED ? "" : v.opener();
@@ -134,8 +134,8 @@ public final class Speech {
         if (!open.isEmpty()) {
             s.append(open).append(open.endsWith("?") || open.endsWith("...") ? " " : ", ");
             // Sau từ mở đầu thì viết thường (trừ tên riêng).
-            String nm = LyConfig.get().name;
-            boolean proper = core.startsWith(nm) || (v.name != null && core.startsWith(v.name));
+            String nm = ly.displayName();
+            boolean proper = (nm != null && core.startsWith(nm)) || (v.name != null && core.startsWith(v.name));
             if (!proper && open.endsWith(",") == false && !open.endsWith("?") && !open.endsWith("..."))
                 core = Character.toLowerCase(core.charAt(0)) + core.substring(1);
         }
@@ -150,7 +150,7 @@ public final class Speech {
             case CONFUSED, PRAISED, INSULTED, REFUSE, FAILED, FAINT, HURT_BY_OWNER, SCARED, HUNGRY, GIVE_NOTHING, BYE, STRANGER -> true;
             default -> false;
         };
-        if (!somber && v.chance(0.25f * v.p.talkative)) {
+        if (!somber && v.affinity >= 40 && v.chance(0.12f * v.p.talkative)) {
             String extra = afterthought(ly, v, act);
             if (extra != null) s.append(" ").append(extra);
         }
@@ -158,12 +158,9 @@ public final class Speech {
     }
 
     private static String core(LyMeowzEntity ly, Voice v, Act act, Ctx c) {
-        String me = v.self, you = v.addressYou(), name = LyConfig.get().name;
+        String me = v.self, you = v.addressYou(), name = ly.displayName();
         return switch (act) {
-            case FIRST_MEET -> v.pick("A-a... chào " + you + "! " + cap(me) + " là " + name,
-                    "Cuối cùng cũng gặp được ai đó rồi! " + cap(me) + " là " + name,
-                    "Xin chào~ " + cap(me) + " tên " + name + ", cho " + me + " đi cùng " + you + " nha")
-                    + ". " + v.pick("Thế giới này rộng quá", "Ở một mình buồn lắm", "Nãy giờ " + me + " lạc mãi") + "... Mugyu~";
+            case FIRST_MEET -> v.pick("A... chào", "Ơ... bạn là ai", "...Chào bạn") + (name != null ? ". " + cap(me) + " là " + name : "");
             case GREET -> v.pick("Chào " + you, "Hi " + you, "A, " + you + " gọi " + me + " hả", cap(me) + " đây")
                     + (v.chance(0.5f) ? ". " + whatNow(ly, v) : "");
             case WELCOME_BACK -> v.pick(cap(you) + " về rồi", "A! " + cap(you) + " quay lại rồi", "Tìm thấy " + you + " rồi")
@@ -204,7 +201,21 @@ public final class Speech {
             case ARRIVED_HOME -> v.pick("Về tới nhà rồi", "Nhà mình đây rồi") + (v.p.builder > 0.6f ? ", " + v.pick("ấm áp ghê", "phải sửa sang thêm mới được") : "");
             case HOME_SET -> v.pick("Đây là nhà mới của tụi mình hả", cap(me) + " nhớ chỗ này rồi", "Từ giờ đây là nhà nha")
                     + (v.p.builder > 0.6f ? ". " + cap(me) + " sẽ trồng thêm cây quanh đây" : "");
-            case STRANGER -> "Mugyu~... " + v.pick("bạn là ai vậy", me + " không quen bạn", "bạn của chủ " + me + " hả");
+            case STRANGER -> v.pick("...?", "Ơ... bạn cần gì", "Mugyu~... " + me + " không quen bạn", "Ừm... chào");
+            case SHY -> v.pick("...", "Mugyu~", "Ơ...", "Ừm...", "...Mugyu~");
+            case NOT_CLOSE -> v.affinity < 0
+                    ? v.pick("Không.", cap(me) + " không muốn.", "Đừng có ra lệnh cho " + me + ".")
+                    : v.affinity < 15 ? v.pick("Mình còn chưa quen nhau mà", cap(me) + " đâu có biết bạn là ai", "Hả? Sao " + me + " phải nghe bạn") + "... Mugyu~"
+                    : v.pick(cap(me) + " với bạn chưa thân tới mức đó đâu", "Để " + me + " suy nghĩ đã... chưa được đâu", "Hừm... từ từ đã, " + me + " còn đang bận việc của " + me);
+            case WAITING -> v.pick(cap(me) + " đang ở ", "Ở ", "Toạ độ ") + c.text + (c.count > 0
+                    ? ". " + v.pick(cap(me) + " đợi " + you + " ở đây", cap(you) + " tới đi, " + me + " đứng đợi", "Ừm, " + me + " sẽ ở yên đây đợi " + you)
+                    : "");
+            case MET_AT_SPOT -> v.pick(cap(you) + " tới rồi", "A, " + you + " đây rồi", "Lâu ghê đó") + v.pick("", ". " + cap(me) + " đợi nãy giờ", ". Đi thôi");
+            case NAMED -> "M-Mugyu~! " + v.pick("Tên " + me + " là " + name + " hả", cap(name) + "... nghe cũng hay", "Từ giờ " + me + " là " + name + " à")
+                    + v.pick("... cảm ơn " + you, "... " + me + " sẽ nhớ", "");
+            case SAVED_THANKS -> v.pick("C-cảm ơn " + you + " đã cứu " + me, "Phù... may có " + you, cap(you) + " vừa cứu " + me + " đó hả");
+            case RELEASED -> v.pick("Ừm, " + me + " đi làm việc của " + me + " đây", "Okie, lát gặp lại", cap(me) + " tự lo được mà");
+            case PLAN -> c.text;
             case HUNGRY -> v.pick("Đói quá", "Bụng " + me + " kêu rồi", cap(me) + " " + v.degree(100 - ly.getHunger() * 5) + " đói")
                     + "... " + v.pick("Mugyu~", you + " có gì ăn không");
             case GIVE -> v.pick("Đây nè, cầm lấy", "Cho " + you + " hết nè", cap(me) + " đưa " + you + " đồ nè")
@@ -327,7 +338,8 @@ public final class Speech {
     /** Hướng từ chỗ người nghe (hoặc cô ấy) tới vị trí. */
     static String direction(LyMeowzEntity ly, BlockPos pos) {
         if (pos == null) return "kia";
-        var from = ly.getOwner() != null && ly.getOwner().level() == ly.level() ? ly.getOwner().blockPosition() : ly.blockPosition();
+        var fp = ly.focusPlayer();
+        var from = fp != null && fp.level() == ly.level() ? fp.blockPosition() : ly.blockPosition();
         double dx = pos.getX() - from.getX(), dz = pos.getZ() - from.getZ();
         if (dx * dx + dz * dz < 36) return "ngay đây";
         double ang = Math.toDegrees(Math.atan2(dx, -dz)); // 0 = bắc (-Z), 90 = đông (+X)

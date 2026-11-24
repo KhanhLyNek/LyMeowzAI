@@ -30,7 +30,7 @@ public class Mind {
 
     public enum Event {
         GIFT, FED, PRAISED, INSULTED, HIT_BY_PLAYER, HURT_BY_MOB, KILLED_MOB, FAINTED, FOUND_PLACE,
-        TASK_SUCCESS, TASK_FAIL, CRAFTED, ATE, OWNER_RETURNED, OWNER_LEFT, CHATTED, LONELY, NIGHT_FELL
+        TASK_SUCCESS, TASK_FAIL, CRAFTED, ATE, OWNER_RETURNED, OWNER_LEFT, CHATTED, LONELY, NIGHT_FELL, NAMED, SAVED, BUILT
     }
 
     private final LyMeowzEntity ly;
@@ -50,6 +50,7 @@ public class Mind {
 
     /** Gọi mỗi giây. */
     public void tickSecond(ServerLevel level, @Nullable ServerPlayer owner, boolean working, String activity) {
+        if (owner != null && d.lifeTicks % 1200 == 0 && owner.level() == level && owner.distanceTo(ly) < 16) together(owner);
         d.lifeTicks += 20;
         Personality p = p();
         boolean night = Compat.isNight(level) && level.dimensionType().hasSkyLight();
@@ -58,15 +59,16 @@ public class Mind {
         // Năng lượng: làm việc thì mệt, nghỉ thì hồi; ban đêm hồi nhanh hơn.
         d.energy = clamp(d.energy + (working ? -0.12f : (night ? 0.4f : 0.2f)));
         // Giao tiếp: ở gần chủ thì ấm lòng, xa lâu thì cô đơn.
-        d.social = clamp(d.social + (ownerDist < 12 ? 0.15f : -0.08f * (0.5f + p.social)));
+        d.social = clamp(d.social + (ownerDist < 16 ? 0.15f : -0.05f * (0.5f + p.social)));
         // Chán: làm mãi một việc / đứng không thì chán dần; khám phá thì hết chán.
         d.boredom = clamp(d.boredom + switch (activity) {
-            case "khám phá" -> -1.2f;
+            case "khám phá", "thư giãn" -> -1.2f;
+            case "ngủ" -> -0.05f;
             case "nghỉ" -> 0.12f;
             default -> 0.05f;
         });
         // Tò mò: tự tăng theo tính cách, khám phá thì được thỏa mãn.
-        d.curiosity = clamp(d.curiosity + ("khám phá".equals(activity) ? -0.6f : 0.04f + 0.08f * p.curious));
+        d.curiosity = clamp(d.curiosity + ("khám phá".equals(activity) ? -0.6f : "ngủ".equals(activity) ? 0 : 0.04f + 0.08f * p.curious));
         // Sợ: tự nguôi dần; đêm tối ngoài trời, máu thấp, quái ở gần thì sợ thêm.
         float fearDelta = -1.0f - p.brave;
         if (night && level.canSeeSky(ly.blockPosition())) fearDelta += 0.4f * (1 - p.brave);
@@ -74,7 +76,7 @@ public class Mind {
         List<net.minecraft.world.entity.Mob> hostiles = level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class,
                 ly.getBoundingBox().inflate(10), m -> m instanceof Enemy && m.isAlive());
         if (!hostiles.isEmpty()) fearDelta += 1.5f * hostiles.size() * (1.2f - p.brave);
-        if (ownerDist < 6) fearDelta -= 0.5f; // có chủ bên cạnh thì yên tâm hơn
+        if (ownerDist < 6 && owner != null && affinity(owner.getUUID()) > 40) fearDelta -= 0.5f; // có bạn bên cạnh thì yên tâm hơn
         d.fear = clamp(d.fear + fearDelta);
         // Vui: trôi về mức nền theo tính cách; đói, sợ, cô đơn thì buồn.
         float base = 35 + 40 * p.cheerful;
@@ -97,11 +99,11 @@ public class Mind {
     public void event(Event e, @Nullable Player who, @Nullable String what, @Nullable BlockPos where) {
         Personality p = p();
         switch (e) {
-            case GIFT -> { d.joy += 18; d.social += 10; relate(who, 8); }
-            case FED -> { d.joy += 10; relate(who, 5); }
-            case PRAISED -> { d.joy += 12; d.social += 8; relate(who, 4); }
-            case INSULTED -> { d.joy -= 15 + 10 * p.kind; relate(who, -8); }
-            case HIT_BY_PLAYER -> { d.joy -= 20; d.fear += 15 * (1 - p.brave); relate(who, -12); }
+            case GIFT -> { d.joy += 12; d.social += 8; }
+            case FED -> { d.joy += 10; relate(who, 3, true); }
+            case PRAISED -> { d.joy += 8; d.social += 5; relate(who, 1.5f, true); }
+            case INSULTED -> { d.joy -= 15 + 10 * p.kind; relate(who, -4, false); }
+            case HIT_BY_PLAYER -> { d.joy -= 20; d.fear += 15 * (1 - p.brave); relate(who, -15, false); markHit(who); }
             case HURT_BY_MOB -> { d.fear += 25 * (1.2f - p.brave); d.joy -= 5; remember(PlaceKind.DANGER, where, 1); }
             case KILLED_MOB -> { d.fear -= 20; d.joy += 6 + 8 * p.fighter; }
             case FAINTED -> { d.fear += 40; d.joy -= 25; remember(PlaceKind.DANGER, where, 3); }
@@ -110,9 +112,12 @@ public class Mind {
             case TASK_FAIL -> { d.joy -= 3; d.boredom += 3; }
             case CRAFTED -> { d.joy += 8; rollDay(); if (what != null && d.craftedToday.size() < 12) d.craftedToday.add(what); }
             case ATE -> { d.joy += 4; }
-            case OWNER_RETURNED -> { d.joy += 20; d.social += 30; relate(who, 2); }
-            case OWNER_LEFT -> { d.social -= 10; d.joy -= 5; }
-            case CHATTED -> { d.social += 6; d.boredom -= 4; relate(who, 0.5f); }
+            case OWNER_RETURNED -> { d.joy += 10; d.social += 15; }
+            case OWNER_LEFT -> { d.social -= 5; }
+            case CHATTED -> { d.social += 6; d.boredom -= 4; relate(who, 0.3f, true); }
+            case NAMED -> { d.joy += 15; relate(who, 8, false); }
+            case SAVED -> { d.fear -= 30; d.joy += 10; relate(who, 5, false); }
+            case BUILT -> { d.joy += 15; d.boredom -= 20; rollDay(); if (what != null) d.craftedToday.add(what); }
             case LONELY, NIGHT_FELL -> {}
         }
         d.joy = clamp(d.joy); d.fear = clamp(d.fear); d.social = clamp(d.social);
@@ -133,19 +138,61 @@ public class Mind {
         }
     }
 
-    private void relate(@Nullable Player who, float delta) {
-        if (who == null) return;
+    /** Giới hạn độ thân tăng mỗi ngày từ quà / lời khen / trò chuyện. */
+    public static final float DAILY_GAIN = 10;
+    /** Ở cạnh nhau lâu chỉ giúp thân tới mức này; muốn thân hơn phải làm gì đó. */
+    public static final float TOGETHER_CAP = 30;
+
+    /** Được tặng quà có giá trị {@code value} (1 = đồ thường, 12 = kim cương...). */
+    public void gift(Player who, int value) {
+        relate(who, Math.max(1, Math.min(6, value)), true);
+    }
+
+    private MindData.Relation relation(Player who) {
         MindData.Relation r = d.relations.computeIfAbsent(who.getUUID().toString(), k -> new MindData.Relation());
         r.name = who.getName().getString();
+        return r;
+    }
+
+    private void markHit(@Nullable Player who) {
+        if (who != null) relation(who).lastHit = d.lifeTicks;
+    }
+
+    /** Đổi độ thân với một người. {@code capped}: tính vào giới hạn mỗi ngày (quà, khen...). */
+    private void relate(@Nullable Player who, float delta, boolean capped) {
+        if (who == null) return;
+        MindData.Relation r = relation(who);
+        if (delta > 0 && capped) {
+            long day = ly.level().getGameTime() / 24000L;
+            if (r.gainDay != day) { r.gainDay = day; r.gainToday = 0; }
+            delta = Math.min(delta, DAILY_GAIN - r.gainToday);
+            if (delta <= 0) return;
+            r.gainToday += delta;
+        }
         r.affinity = Math.max(-100, Math.min(100, r.affinity + delta));
         if (delta > 0) r.good++; else if (delta < 0) r.bad++;
         r.lastSeen = d.lifeTicks;
     }
 
+    /** Gọi mỗi phút cho người đang ở gần: quen dần nhau, nhưng có trần. */
+    public void together(Player who) {
+        MindData.Relation r = relation(who);
+        r.lastSeen = d.lifeTicks;
+        if (d.lifeTicks - r.lastHit < 20 * 60 * 5) return; // vừa bị đánh thì không thấy thân hơn
+        if (r.together >= TOGETHER_CAP || r.affinity >= TOGETHER_CAP) return;
+        float g = 0.3f + 0.3f * p().social;
+        r.together += g;
+        r.affinity = Math.min(100, r.affinity + g);
+    }
+
     public float affinity(UUID player) {
         MindData.Relation r = d.relations.get(player.toString());
-        if (r == null) return ly.isOwnerUuid(player) ? 30 : 0;
-        return r.affinity + (ly.isOwnerUuid(player) ? 30 : 0);
+        return r == null ? 0 : r.affinity;
+    }
+
+    /** Đã từng gặp người này chưa. */
+    public boolean knows(UUID player) {
+        return d.relations.containsKey(player.toString());
     }
 
     // ------------------------------------------------------------------ nhìn & nhớ nơi chốn
@@ -214,7 +261,6 @@ public class Mind {
         }
         if (kind != PlaceKind.DANGER && kind != PlaceKind.HOME) {
             event(Event.FOUND_PLACE, null, kind.name(), pos);
-            ly.onDiscovered(kind, pos);
         }
         return true;
     }

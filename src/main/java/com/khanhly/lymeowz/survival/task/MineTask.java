@@ -26,6 +26,8 @@ public class MineTask extends Task {
     private BlockPos target;
     private int mined;
     private int walkTries;
+    private int hidden;
+    private int lookAgain;
 
     public MineTask(LyMeowzEntity ly, int wanted, BlockPos center, int radius, Set<BlockPos> blacklist) {
         super(ly);
@@ -54,7 +56,25 @@ public class MineTask extends Task {
             if (r == BlockBreaker.Result.DONE) mined++;
             if (r == BlockBreaker.Result.FAILED) blacklist.add(target);
             breaker.cancel(level, ly);
+            if (r == BlockBreaker.Result.NOT_VISIBLE || r == BlockBreaker.Result.OUT_OF_REACH) {
+                // Không nhìn thấy mặt block từ chỗ đang đứng: bước tới trước mặt lộ ra của nó rồi thử lại.
+                if (++hidden > 2) { blacklist.add(target); target = null; hidden = 0; return true; }
+                BlockPos face = exposedFace(level, target);
+                if (face != null) ly.walkTo(face, 1.0);
+                lookAgain = 30;
+                return true;
+            }
             target = null;
+            hidden = 0;
+        }
+        if (lookAgain > 0) {
+            lookAgain--;
+            if (target != null && (ly.getNavigation().isDone() || lookAgain == 0) && BlockBreaker.inReach(ly, target)) {
+                lookAgain = 0;
+                ly.holdBestFor(level.getBlockState(target));
+                breaker.start(target);
+            }
+            return true;
         }
         if (mined >= wanted) return false;
 
@@ -110,7 +130,23 @@ public class MineTask extends Task {
             BlockState st = level.getBlockState(m);
             double score = m.distSqr(feet);
             if (st.is(BlockItemTags.COAL_ORES.block()) || st.is(BlockTags.IRON_ORES)) score -= 400; // ưu tiên quặng
+            if (score < bestScore && !BlockBreaker.canSee(ly, m)) score += 300; // ưu tiên chỗ đang nhìn thấy
             if (score < bestScore) { bestScore = score; best = m.immutable(); }
+        }
+        return best;
+    }
+
+    /** Ô không khí cạnh block (chỗ đứng nhìn vào mặt lộ ra), gần cô ấy nhất. */
+    private BlockPos exposedFace(ServerLevel level, BlockPos p) {
+        BlockPos best = null;
+        double bd = 1e9;
+        for (Direction d : Direction.values()) {
+            BlockPos n = p.relative(d);
+            if (!level.getBlockState(n).isAir()) continue;
+            BlockPos stand = n;
+            while (stand.getY() > p.getY() - 3 && level.getBlockState(stand.below()).isAir()) stand = stand.below();
+            double dist = stand.distSqr(ly.blockPosition());
+            if (dist < bd) { bd = dist; best = stand; }
         }
         return best;
     }

@@ -2,7 +2,6 @@ package com.khanhly.lymeowz.survival;
 
 import com.khanhly.lymeowz.entity.LyMeowzEntity;
 import com.khanhly.lymeowz.mind.Decider;
-import com.khanhly.lymeowz.speech.Speech;
 import com.khanhly.lymeowz.survival.task.CraftTask;
 import com.khanhly.lymeowz.survival.task.EatTask;
 import com.khanhly.lymeowz.survival.task.Task;
@@ -34,9 +33,9 @@ public class Survival {
     private String currentReason;
     private int cooldown;
     private int age;
+    private int instantFails;
     private Focus focus = Focus.AUTO;
     private int focusTicks;
-    private final Map<String, Long> spoken = new HashMap<>();
 
     public Survival(LyMeowzEntity ly) {
         this.ly = ly;
@@ -66,6 +65,15 @@ public class Survival {
         decider.invalidate();
     }
 
+    /** Làm ngay một việc (không qua chấm điểm). */
+    public void forceTask(ServerLevel level, Task t) {
+        interrupt(level);
+        current = t;
+        currentScore = 1f;
+        currentReason = null;
+        t.start(level);
+    }
+
     public void interrupt(ServerLevel level) {
         if (current != null) {
             Task t = current;
@@ -90,8 +98,7 @@ public class Survival {
     private boolean needsToEat() {
         int h = ly.getHunger();
         if (h > 14) return false;
-        boolean starving = h <= 4;
-        return ly.inv().count(s -> Tools.isGoodFood(s) || (starving && Tools.isFood(s))) > 0;
+        return ly.inv().count(s -> Tools.edible(s, h)) > 0;
     }
 
     /** Một tick làm việc quanh {@code center} (chỗ chủ đứng), trong bán kính {@code radius}. */
@@ -126,15 +133,6 @@ public class Survival {
         currentScore = o.score();
         currentReason = o.reason();
         current.start(level);
-        // Nói ra việc mình định làm (và vì sao) – không phải lúc nào cũng nói, tùy tính "nói nhiều".
-        String a = o.action();
-        boolean chatty = ly.getRandom().nextFloat() < 0.3f + 0.5f * ly.mind().p().talkative;
-        Long last = spoken.get(a);
-        if (chatty && !Set.of("nhặt đồ", "chế tạo", "trò chuyện", "chạy trốn", "ăn").contains(a)
-                && (last == null || level.getGameTime() - last > 20 * 150)) {
-            spoken.put(a, level.getGameTime());
-            ly.speak(Speech.Act.START, Speech.Ctx.of().action(a).reason(currentReason));
-        }
     }
 
     private void finish(ServerLevel level) {
@@ -142,16 +140,19 @@ public class Survival {
         current = null;
         t.stop(level);
         boolean ok = t.succeeded();
+        if (com.khanhly.lymeowz.command.SurvivalTest.running() && !Set.of("nghỉ", "nhặt đồ", "ăn").contains(t.name()))
+            com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     ({} {} sau {}s)", t.name(), ok ? "xong" : "thất bại", t.ageTicks() / 20);
         // Học: nhớ việc này ở vùng này thành công hay thất bại.
-        if (!Set.of("nghỉ", "nhặt đồ", "ăn").contains(t.name())) ly.mind().learn(t.name(), ly.blockPosition(), ok);
-        if (!ok && Set.of("chặt cây", "đào đá", "đi săn").contains(t.name()) && ly.getRandom().nextFloat() < 0.3f) {
-            ly.speak(Speech.Act.FAILED, Speech.Ctx.of().action(t.name()));
-        }
+        if (!Set.of("nghỉ", "nhặt đồ", "ăn", "thư giãn").contains(t.name())) ly.mind().learn(t.name(), ly.blockPosition(), ok);
+        // Thất bại ngay lập tức nhiều lần liền: có lẽ đang bị kẹt (trong chuồng, trong hố...).
+        if (!ok && t.ageTicks() < 20) {
+            if (++instantFails >= 3) { instantFails = 0; ly.unstuck(level); }
+        } else instantFails = 0;
         decider.invalidate();
     }
 
     /** Món nâng cấp tiếp theo làm được ngay, theo thứ tự một người chơi sinh tồn hay làm. */
-    public static Item nextCraft(LyMeowzEntity ly, ServerLevel level, LyInventory all) {
+    public static Item nextCraft(LyMeowzEntity ly, ServerLevel level, LyInventory all, Roadmap.Stage stage) {
         int pick = bestTier(all, Tools.Kind.PICKAXE);
         int axe = bestTier(all, Tools.Kind.AXE);
         int sword = bestTier(all, Tools.Kind.SWORD);
@@ -163,11 +164,36 @@ public class Survival {
         if (axe < 2) wish.add(Items.STONE_AXE);
         if (sword < 2) wish.add(Items.STONE_SWORD);
         if (!all.has(Items.FURNACE) && pick >= 2) wish.add(Items.FURNACE);
+        if (stage.ordinal() >= Roadmap.Stage.FARM.ordinal() && all.count(net.minecraft.tags.ItemTags.HOES) == 0) {
+            wish.add(Items.STONE_HOE);
+            wish.add(Items.WOODEN_HOE);
+        }
         if (pick < 3) wish.add(Items.IRON_PICKAXE);
         if (sword < 3) wish.add(Items.IRON_SWORD);
+        if (!all.has(Items.SHIELD) && !ly.getOffhandItem().is(Items.SHIELD)) wish.add(Items.SHIELD);
+        armor(ly, all, wish, net.minecraft.world.entity.EquipmentSlot.CHEST, Items.IRON_CHESTPLATE, Items.DIAMOND_CHESTPLATE);
+        if (!all.has(Items.BUCKET) && !all.has(Items.WATER_BUCKET)) wish.add(Items.BUCKET);
+        armor(ly, all, wish, net.minecraft.world.entity.EquipmentSlot.HEAD, Items.IRON_HELMET, Items.DIAMOND_HELMET);
+        armor(ly, all, wish, net.minecraft.world.entity.EquipmentSlot.LEGS, Items.IRON_LEGGINGS, Items.DIAMOND_LEGGINGS);
+        armor(ly, all, wish, net.minecraft.world.entity.EquipmentSlot.FEET, Items.IRON_BOOTS, Items.DIAMOND_BOOTS);
+        if (!all.has(Items.SHEARS) && Roadmap.has(ly, "pen")) wish.add(Items.SHEARS);
         if (axe < 3) wish.add(Items.IRON_AXE);
+        if (pick < 4) wish.add(Items.DIAMOND_PICKAXE);
+        if (sword < 4) wish.add(Items.DIAMOND_SWORD);
         for (Item it : wish) if (CraftTask.canMake(ly, level, it)) return it;
         return null;
+    }
+
+    /** Thêm giáp sắt (rồi kim cương) vào danh sách muốn làm nếu đang mặc đồ kém hơn. */
+    private static void armor(LyMeowzEntity ly, LyInventory all, List<Item> wish, net.minecraft.world.entity.EquipmentSlot slot, Item iron, Item diamond) {
+        int worn = Tools.armorRank(ly.getItemBySlot(slot));
+        for (int i = 0; i < all.getContainerSize(); i++) {
+            ItemStack s = all.getItem(i);
+            var eq = s.get(net.minecraft.core.component.DataComponents.EQUIPPABLE);
+            if (eq != null && eq.slot() == slot) worn = Math.max(worn, Tools.armorRank(s));
+        }
+        if (worn < Tools.armorRank(new ItemStack(iron))) wish.add(iron);
+        else if (worn < Tools.armorRank(new ItemStack(diamond))) wish.add(diamond);
     }
 
     public static int bestTier(LyInventory inv, Tools.Kind kind) {

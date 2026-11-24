@@ -90,7 +90,7 @@ public final class Understanding {
         }
         if (has(n, "nha", "home") && has(n, "dau", "huong nao", "o dau")) {
             BlockPos home = ly.getHomePos();
-            if (home == null) return cap(me) + " coi giường của " + you + " là nhà đó" + v.ending();
+            if (home == null) return cap(me) + " chưa có nhà, " + v.pick("đang để dành đá để xây", "đi đâu ngủ đó thôi") + v.ending();
             return "Nhà " + Speech.at(ly, home) + ", " + Speech.distance(ly, home) + v.ending();
         }
         Mind.PlaceKind asked = has(n, "mo", "da", "quang", "khoang") ? (has(n, "quang", "sat", "than") ? Mind.PlaceKind.ORE : Mind.PlaceKind.STONE)
@@ -105,7 +105,10 @@ public final class Understanding {
             return cap(me) + " nhớ có " + Speech.placeDesc(v, asked) + " " + Speech.at(ly, p) + ", " + Speech.distance(ly, p) + v.ending();
         }
         if (has(n, "ten gi", "la ai", "who are you", "ten cau")) {
-            return cap(me) + " là " + com.khanhly.lymeowz.config.LyConfig.get().name + ", " + v.pick("bạn đồng hành của " + you, "cô bạn của " + you) + v.ending();
+            String nm = ly.displayName();
+            if (nm != null) return cap(me) + " là " + nm + v.ending();
+            return v.affinity >= 15 ? cap(me) + " chưa có tên... " + v.pick("ai đặt cho " + me + " một cái thì hay biết mấy", "nếu " + you + " có bảng tên thì...") + " Mugyu~"
+                    : v.pick("...Không có tên.", cap(me) + " không có tên đâu.");
         }
         if (has(n, "thich gi", "so thich", "tinh cach", "la nguoi", "uoc mo", "ly tuong")) {
             return cap(me) + " là đứa " + m.personality.describe() + ". " + v.pick("Điều " + me + " muốn nhất là ", cap(me) + " mơ được ") + m.personality.idealText() + v.ending();
@@ -137,6 +140,12 @@ public final class Understanding {
                 if (s != null) return s + v.ending();
             }
             return cap(me) + " không nhớ chuyện gì đặc biệt" + v.ending();
+        }
+        if (has(n, "ke hoach", "lo trinh", "muc tieu", "dinh lam gi", "se lam gi", "tiep theo", "plan")) {
+            return com.khanhly.lymeowz.survival.Roadmap.describe(ly, v.affinity >= 15);
+        }
+        if (has(n, "giau", "co bao nhieu", "tai san", "kim cuong", "sat")) {
+            return com.khanhly.lymeowz.survival.Roadmap.wealth(ly, v.affinity >= 40) + v.ending();
         }
         if (has(n, "may gio", "troi", "ngay hay dem")) {
             return (ly.level().isDarkOutside() ? v.pick("Tối rồi đó", "Đang đêm") : v.pick("Đang ban ngày", "Trời sáng mà")) + v.ending();

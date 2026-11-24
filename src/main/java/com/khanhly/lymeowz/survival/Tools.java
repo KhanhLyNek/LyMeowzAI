@@ -46,6 +46,30 @@ public final class Tools {
         return (correct ? 100 : 0) + speed;
     }
 
+    /** Cấp giáp: da 1, vàng/xích/đồng 2, sắt 3, kim cương 4, netherite 5 (0 = không phải giáp). */
+    public static int armorRank(ItemStack s) {
+        if (s.isEmpty() || s.get(net.minecraft.core.component.DataComponents.EQUIPPABLE) == null) return 0;
+        String path = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
+        if (path.startsWith("netherite_")) return 5;
+        if (path.startsWith("diamond_")) return 4;
+        if (path.startsWith("iron_")) return 3;
+        if (path.startsWith("chainmail_") || path.startsWith("golden_") || path.startsWith("copper_")) return 2;
+        if (path.startsWith("leather_") || path.startsWith("turtle_")) return 1;
+        return 0;
+    }
+
+    /** Đồ quý (để ước lượng giá trị quà tặng / độ "giàu"). */
+    public static int value(ItemStack s) {
+        String path = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
+        if (path.contains("netherite")) return 40;
+        if (path.contains("diamond") || path.contains("emerald")) return 12;
+        if (path.contains("gold")) return 5;
+        if (path.contains("iron")) return 3;
+        if (isFood(s)) return 2;
+        if (s.is(net.minecraft.tags.BlockItemTags.SMALL_FLOWERS.item())) return 3;
+        return 1;
+    }
+
     public static double weaponScore(ItemStack s) {
         if (s.is(ItemTags.SWORDS)) return 10 + tier(s);
         if (s.is(ItemTags.AXES)) return 5 + tier(s);
@@ -64,6 +88,13 @@ public final class Tools {
         return !(s.is(Items.ROTTEN_FLESH) || s.is(Items.SPIDER_EYE) || s.is(Items.POISONOUS_POTATO)
                 || s.is(Items.PUFFERFISH) || s.is(Items.CHORUS_FRUIT) || s.is(Items.SUSPICIOUS_STEW)
                 || isRawMeat(s));
+    }
+
+    /** Có chịu ăn món này lúc đói cỡ {@code hunger} không: đói vừa thì ăn cả thịt sống (trừ gà sống), đói lả thì ăn gì cũng được. */
+    public static boolean edible(ItemStack s, int hunger) {
+        if (isGoodFood(s)) return true;
+        if (hunger <= 7 && isRawMeat(s) && !s.is(Items.CHICKEN)) return true;
+        return hunger <= 4 && isFood(s);
     }
 
     public static int nutrition(ItemStack s) {

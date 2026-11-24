@@ -33,7 +33,7 @@ public final class SimpleTasks {
         public Rest(LyMeowzEntity ly) { super(ly); timeout = 20 * 20; }
         @Override public String name() { return "nghỉ"; }
         @Override protected boolean run(ServerLevel level) {
-            ServerPlayer o = ly.getOwner();
+            ServerPlayer o = ly.focusPlayer();
             if (o != null && o.level() == level && o.distanceTo(ly) > 4 && ly.getNavigation().isDone()) ly.getNavigation().moveTo(o, 0.9);
             else if (o != null && o.distanceTo(ly) <= 3) ly.getNavigation().stop();
             if (o != null) ly.getLookControl().setLookAt(o, 20f, 20f);
@@ -49,7 +49,7 @@ public final class SimpleTasks {
         public Socialize(LyMeowzEntity ly) { super(ly); timeout = 20 * 12; }
         @Override public String name() { return "trò chuyện"; }
         @Override protected boolean run(ServerLevel level) {
-            ServerPlayer o = ly.getOwner();
+            ServerPlayer o = ly.focusPlayer();
             if (o == null || o.level() != level) return false;
             if (o.distanceTo(ly) > 3) {
                 if (ly.getNavigation().isDone()) ly.getNavigation().moveTo(o, 1.0);
@@ -93,7 +93,7 @@ public final class SimpleTasks {
         }
         @Override protected boolean run(ServerLevel level) {
             if (!from.isAlive() || from.distanceTo(ly) > 14) return false;
-            ServerPlayer o = ly.getOwner();
+            ServerPlayer o = ly.focusPlayer();
             Vec3 away = ly.position().subtract(from.position()).normalize().scale(8);
             Vec3 goal = o != null && o.level() == level ? o.position().add(away.scale(0.3)) : ly.position().add(away);
             if (ly.getNavigation().isDone() || age % 10 == 0) ly.getNavigation().moveTo(goal.x, goal.y, goal.z, 1.4);
@@ -139,7 +139,7 @@ public final class SimpleTasks {
                         BlockState st = level.getBlockState(n);
                         if (st.is(BlockTags.LOGS) || st.is(BlockTags.SAPLINGS) || st.is(Blocks.CRAFTING_TABLE)) { crowded = true; break; }
                     }
-                    ServerPlayer o = ly.getOwner();
+                    ServerPlayer o = ly.focusPlayer();
                     if (!crowded && (o == null || !o.blockPosition().closerThan(q, 2))) return q.immutable();
                 }
             }
@@ -182,14 +182,14 @@ public final class SimpleTasks {
             return true;
         }
         private BlockPos findDarkSpot(ServerLevel level) {
-            BlockPos c = ly.getOwner() != null ? ly.getOwner().blockPosition() : ly.blockPosition();
+            BlockPos c = ly.focusPlayer() != null ? ly.focusPlayer().blockPosition() : ly.blockPosition();
             for (int i = 0; i < 40; i++) {
                 BlockPos p = c.offset(ly.getRandom().nextIntBetweenInclusive(-7, 7), 0, ly.getRandom().nextIntBetweenInclusive(-7, 7));
                 for (int dy = -1; dy <= 1; dy++) {
                     BlockPos q = p.above(dy);
                     if (!level.getBlockState(q).isAir() || !level.getBlockState(q.below()).isFaceSturdy(level, q.below(), Direction.UP)) continue;
                     if (level.getBrightness(LightLayer.BLOCK, q) > 6) continue;
-                    if (ly.getOwner() != null && ly.getOwner().blockPosition().closerThan(q, 2)) continue;
+                    if (ly.focusPlayer() != null && ly.focusPlayer().blockPosition().closerThan(q, 2)) continue;
                     return q.immutable();
                 }
             }
@@ -200,6 +200,15 @@ public final class SimpleTasks {
         public static boolean canLight(LyMeowzEntity ly) {
             return ly.inv().has(Items.TORCH) || (ly.inv().count(ItemTags.COALS) > 0 && (ly.inv().has(Items.STICK) || ly.inv().count(ItemTags.PLANKS) >= 2 || ly.inv().count(ItemTags.LOGS) > 0));
         }
+    }
+
+    /** Ra khỏi chuồng thú (mở cổng, đi ra, đóng cổng). */
+    public static class LeavePen extends Task {
+        private final BlockPos pen;
+        public LeavePen(LyMeowzEntity ly, BlockPos pen) { super(ly); this.pen = pen; timeout = 20 * 20; }
+        @Override public String name() { return "ra khỏi chuồng"; }
+        @Override protected boolean run(ServerLevel level) { return PenTask.walkOut(ly, level, pen, age); }
+        @Override public boolean succeeded() { return true; }
     }
 
     @SuppressWarnings("unused")

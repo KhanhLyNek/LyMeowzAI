@@ -2,8 +2,9 @@ package com.khanhly.lymeowz.world;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
 import com.khanhly.lymeowz.LyMeowzMod;
+import com.khanhly.lymeowz.mind.MindData;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 import org.jetbrains.annotations.Nullable;
@@ -15,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -23,14 +25,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Toàn bộ dữ liệu của LyMeowz nằm trong {@code <world>/data/lymeowz.json}, không nằm trong NBT của entity.
- * Nhờ vậy định dạng lưu không phụ thuộc vào phiên bản Minecraft (NBT/SavedData đổi API liên tục
- * từ 1.21.5 tới 26.x), và luôn tìm được cô ấy kể cả khi chunk của cô ấy chưa được load.
+ * Dữ liệu của mọi LyMeowz trong thế giới, lưu ở {@code <world>/data/lymeowz.json} (không nằm trong NBT).
+ * Mỗi cô một bản ghi theo UUID của chính cô ấy – cô ấy không "thuộc về" ai; mỗi người chơi chỉ có một độ thân thiết.
  */
 public final class CompanionStore {
     private CompanionStore() {}
 
-    /** Một vị trí trong một chiều không gian. */
     public static final class Spot {
         public String dim;
         public int x, y, z;
@@ -43,37 +43,44 @@ public final class CompanionStore {
         }
     }
 
-    /** Dữ liệu của một LyMeowz (mỗi người chơi một cô). */
+    /** Một yêu cầu của người chơi mà cô ấy đã nhận: đi theo / đợi ở đây / về nhà. */
+    public static final class Request {
+        public String type;          // FOLLOW, WAIT, HOME
+        public String player;        // UUID người nhờ
+        public String playerName;
+        public long until;           // game time hết hạn
+        @Nullable public Spot at;    // chỗ đợi
+    }
+
     public static final class Data {
-        public String owner;
         public String companion;
+        /** Tên do người chơi đặt bằng bảng tên (null = chưa có tên). */
+        @Nullable public String name;
         public Spot last;
-        public String mode = "FOLLOW";
         @Nullable public Spot home;
-        @Nullable public Spot ownerSpawn;
+        /** Vị trí giường của cô ấy (trong nhà). */
+        @Nullable public Spot bed;
+        @Nullable public Request request;
         public List<String> history = new ArrayList<>();
-        /** Thanh no (0–20) như người chơi. */
         public float food = 20;
-        /** Túi đồ (định dạng codec ItemStack của Minecraft). */
-        @Nullable public com.google.gson.JsonElement inventory;
-        /** Tâm trí: tính cách, cảm xúc, trí nhớ, kinh nghiệm. */
-        @Nullable public com.khanhly.lymeowz.mind.MindData mind;
+        @Nullable public JsonElement inventory;
+        @Nullable public MindData mind;
+        /** Những thứ cô ấy đã xây (nhà, ruộng, chuồng, rương...) – để quay lại dùng. */
+        public Map<String, Spot> structures = new HashMap<>();
+        /** Giai đoạn trong lộ trình sinh tồn. */
+        public int stage;
     }
 
     private static final class FileFormat {
-        int version = 1;
+        int version = 3;
         Map<String, Data> companions = new HashMap<>();
         Set<String> retired = new HashSet<>();
     }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-
     private static FileFormat data = new FileFormat();
-    private static final Map<UUID, Data> BY_COMPANION = new HashMap<>();
     @Nullable private static Path file;
     private static boolean dirty;
-
-    // ------------------------------------------------------------------ lifecycle
 
     public static void load(MinecraftServer server) {
         file = server.getWorldPath(LevelResource.ROOT).resolve("data").resolve("lymeowz.json");
@@ -81,8 +88,9 @@ public final class CompanionStore {
         try {
             if (Files.exists(file)) {
                 try (Reader r = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-                    FileFormat f = GSON.fromJson(r, new TypeToken<FileFormat>() {}.getType());
-                    if (f != null) data = f;
+                    FileFormat f = GSON.fromJson(r, FileFormat.class);
+                    if (f != null && f.version >= 3) data = f;
+                    else if (f != null) LyMeowzMod.LOGGER.info("Dữ liệu LyMeowz bản cũ – bắt đầu lại từ đầu.");
                 }
             }
         } catch (Exception e) {
@@ -90,7 +98,10 @@ public final class CompanionStore {
         }
         if (data.companions == null) data.companions = new HashMap<>();
         if (data.retired == null) data.retired = new HashSet<>();
-        reindex();
+        for (Data d : data.companions.values()) {
+            if (d.history == null) d.history = new ArrayList<>();
+            if (d.structures == null) d.structures = new HashMap<>();
+        }
         dirty = false;
     }
 
@@ -113,71 +124,57 @@ public final class CompanionStore {
         save();
         file = null;
         data = new FileFormat();
-        BY_COMPANION.clear();
     }
 
     public static void markDirty() {
         dirty = true;
     }
 
-    private static void reindex() {
-        BY_COMPANION.clear();
-        data.companions.values().removeIf(d -> d.owner == null || d.companion == null);
-        for (Data d : data.companions.values()) {
-            try { BY_COMPANION.put(UUID.fromString(d.companion), d); } catch (IllegalArgumentException ignored) {}
-            if (d.history == null) d.history = new ArrayList<>();
-            if (d.mode == null) d.mode = "FOLLOW";
-        }
-    }
-
-    // ------------------------------------------------------------------ queries
-
     @Nullable
-    public static Data byOwner(UUID owner) {
-        return data.companions.get(owner.toString());
+    public static Data get(UUID companion) {
+        return data.companions.get(companion.toString());
     }
 
-    @Nullable
-    public static Data byCompanion(UUID companion) {
-        return BY_COMPANION.get(companion);
-    }
-
-    public static Iterable<Data> all() {
+    public static Collection<Data> all() {
         return data.companions.values();
     }
 
-    /** UUID của bản cũ đã bị thay thế – nếu được load lại thì phải gỡ đi. */
-    public static boolean isRetired(UUID companion) {
-        return data.retired.contains(companion.toString());
+    public static boolean isEmpty() {
+        return data.companions.isEmpty();
     }
 
-    // ------------------------------------------------------------------ updates
-
-    /** Gán (hoặc thay) LyMeowz cho một người chơi. Bản cũ (nếu có) bị đánh dấu "nghỉ hưu". */
-    public static Data assign(UUID owner, UUID companion, Spot at) {
-        Data d = byOwner(owner);
-        if (d == null) {
-            d = new Data();
-            d.owner = owner.toString();
-            data.companions.put(d.owner, d);
-        } else if (d.companion != null && !d.companion.equals(companion.toString())) {
-            data.retired.add(d.companion);
-            BY_COMPANION.remove(UUID.fromString(d.companion));
-        }
+    public static Data create(UUID companion, Spot at) {
+        Data d = new Data();
         d.companion = companion.toString();
         d.last = at;
-        BY_COMPANION.put(companion, d);
+        data.companions.put(d.companion, d);
         dirty = true;
         return d;
     }
 
-    public static void remove(Data d) {
-        data.companions.remove(d.owner);
-        try { BY_COMPANION.remove(UUID.fromString(d.companion)); } catch (IllegalArgumentException ignored) {}
+    /** Bản mới thay bản cũ (giữ nguyên trí nhớ, túi đồ, nhà...). */
+    public static void transfer(UUID from, UUID to) {
+        Data d = data.companions.remove(from.toString());
+        if (d == null) return;
+        d.companion = to.toString();
+        data.companions.put(d.companion, d);
+        data.retired.add(from.toString());
         dirty = true;
+    }
+
+    public static void remove(UUID companion) {
+        if (data.companions.remove(companion.toString()) != null) dirty = true;
+    }
+
+    public static boolean isRetired(UUID companion) {
+        return data.retired.contains(companion.toString());
     }
 
     public static void forgetRetired(UUID companion) {
         if (data.retired.remove(companion.toString())) dirty = true;
+    }
+
+    public static List<Data> list() {
+        return new ArrayList<>(data.companions.values());
     }
 }

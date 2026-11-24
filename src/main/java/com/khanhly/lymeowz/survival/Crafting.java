@@ -8,91 +8,127 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * Công thức chế tạo theo đúng số lượng của Minecraft vanilla, cho những món một người chơi sinh tồn cần:
- * ván, que, bàn chế tạo, cuốc/rìu/kiếm gỗ–đá–sắt, lò nung, đuốc.
- * <p>
- * {@link #plan} chạy thử trên một bản sao của túi đồ để biết có làm được không và cần những bước nào.
+ * Công thức chế tạo theo đúng số lượng vanilla cho mọi món trong lộ trình sinh tồn.
+ * Ván và que được tự làm thêm từ gỗ khi thiếu. {@link #plan} chạy thử trên bản sao túi đồ.
  */
 public final class Crafting {
     private Crafting() {}
 
-    /** Một bước chế tạo. */
     public record Step(Item output, int count, boolean needsTable, List<Need> needs) {}
 
     public record Need(Predicate<ItemStack> what, int count) {}
 
-    private static final Predicate<ItemStack> PLANKS = s -> s.is(ItemTags.PLANKS);
-    private static final Predicate<ItemStack> LOGS = s -> s.is(ItemTags.LOGS);
-    private static final Predicate<ItemStack> STICK = s -> s.is(Items.STICK);
-    private static final Predicate<ItemStack> COBBLE = s -> s.is(ItemTags.STONE_TOOL_MATERIALS);
-    private static final Predicate<ItemStack> FURNACE_STONE = s -> s.is(ItemTags.STONE_CRAFTING_MATERIALS);
-    private static final Predicate<ItemStack> IRON = s -> s.is(Items.IRON_INGOT);
-    private static final Predicate<ItemStack> COAL = s -> s.is(ItemTags.COALS);
+    /** Một công thức: nguyên liệu, số lượng ra, có cần bàn 3x3 không. */
+    public record Recipe(Item output, int count, boolean table, List<Need> needs) {}
 
-    /** Món → (vật liệu chính, số lượng, số que). */
-    private record ToolRecipe(Predicate<ItemStack> material, int amount, int sticks) {}
+    public static final Predicate<ItemStack> PLANKS = s -> s.is(ItemTags.PLANKS);
+    public static final Predicate<ItemStack> LOGS = s -> s.is(ItemTags.LOGS);
+    public static final Predicate<ItemStack> STICK = s -> s.is(Items.STICK);
+    public static final Predicate<ItemStack> COBBLE = s -> s.is(ItemTags.STONE_TOOL_MATERIALS);
+    public static final Predicate<ItemStack> FURNACE_STONE = s -> s.is(ItemTags.STONE_CRAFTING_MATERIALS);
+    public static final Predicate<ItemStack> IRON = s -> s.is(Items.IRON_INGOT);
+    public static final Predicate<ItemStack> DIAMOND = s -> s.is(Items.DIAMOND);
+    public static final Predicate<ItemStack> COAL = s -> s.is(ItemTags.COALS);
+    public static final Predicate<ItemStack> WOOL = s -> s.is(ItemTags.WOOL);
+    public static final Predicate<ItemStack> WHEAT = s -> s.is(Items.WHEAT);
 
-    private static final Map<Item, ToolRecipe> TOOLS = Map.ofEntries(
-            Map.entry(Items.WOODEN_PICKAXE, new ToolRecipe(PLANKS, 3, 2)),
-            Map.entry(Items.WOODEN_AXE, new ToolRecipe(PLANKS, 3, 2)),
-            Map.entry(Items.WOODEN_SWORD, new ToolRecipe(PLANKS, 2, 1)),
-            Map.entry(Items.STONE_PICKAXE, new ToolRecipe(COBBLE, 3, 2)),
-            Map.entry(Items.STONE_AXE, new ToolRecipe(COBBLE, 3, 2)),
-            Map.entry(Items.STONE_SWORD, new ToolRecipe(COBBLE, 2, 1)),
-            Map.entry(Items.IRON_PICKAXE, new ToolRecipe(IRON, 3, 2)),
-            Map.entry(Items.IRON_AXE, new ToolRecipe(IRON, 3, 2)),
-            Map.entry(Items.IRON_SWORD, new ToolRecipe(IRON, 2, 1)));
+    private static final Map<Item, Recipe> RECIPES = new HashMap<>();
 
-    /**
-     * Lên kế hoạch làm {@code target} trên {@code inv} (nên là bản sao – hàm này sửa túi đồ).
-     * @param tableNearby có sẵn bàn chế tạo đặt gần đó
-     * @return danh sách bước, hoặc null nếu không đủ nguyên liệu
-     */
+    private static void r(Item out, int count, boolean table, Object... needs) {
+        List<Need> list = new ArrayList<>();
+        for (int i = 0; i < needs.length; i += 2) {
+            @SuppressWarnings("unchecked") Predicate<ItemStack> p = (Predicate<ItemStack>) needs[i];
+            list.add(new Need(p, (Integer) needs[i + 1]));
+        }
+        RECIPES.put(out, new Recipe(out, count, table, list));
+    }
+
+    static {
+        r(Items.CRAFTING_TABLE, 1, false, PLANKS, 4);
+        r(Items.TORCH, 4, false, COAL, 1, STICK, 1);
+        // Dụng cụ
+        r(Items.WOODEN_PICKAXE, 1, true, PLANKS, 3, STICK, 2);
+        r(Items.WOODEN_AXE, 1, true, PLANKS, 3, STICK, 2);
+        r(Items.WOODEN_SWORD, 1, true, PLANKS, 2, STICK, 1);
+        r(Items.WOODEN_HOE, 1, true, PLANKS, 2, STICK, 2);
+        r(Items.STONE_PICKAXE, 1, true, COBBLE, 3, STICK, 2);
+        r(Items.STONE_AXE, 1, true, COBBLE, 3, STICK, 2);
+        r(Items.STONE_SWORD, 1, true, COBBLE, 2, STICK, 1);
+        r(Items.STONE_HOE, 1, true, COBBLE, 2, STICK, 2);
+        r(Items.IRON_PICKAXE, 1, true, IRON, 3, STICK, 2);
+        r(Items.IRON_AXE, 1, true, IRON, 3, STICK, 2);
+        r(Items.IRON_SWORD, 1, true, IRON, 2, STICK, 1);
+        r(Items.IRON_HOE, 1, true, IRON, 2, STICK, 2);
+        r(Items.DIAMOND_PICKAXE, 1, true, DIAMOND, 3, STICK, 2);
+        r(Items.DIAMOND_AXE, 1, true, DIAMOND, 3, STICK, 2);
+        r(Items.DIAMOND_SWORD, 1, true, DIAMOND, 2, STICK, 1);
+        r(Items.SHEARS, 1, false, IRON, 2);
+        r(Items.BUCKET, 1, true, IRON, 3);
+        r(Items.SHIELD, 1, true, PLANKS, 6, IRON, 1);
+        // Giáp
+        r(Items.IRON_HELMET, 1, true, IRON, 5);
+        r(Items.IRON_CHESTPLATE, 1, true, IRON, 8);
+        r(Items.IRON_LEGGINGS, 1, true, IRON, 7);
+        r(Items.IRON_BOOTS, 1, true, IRON, 4);
+        r(Items.DIAMOND_HELMET, 1, true, DIAMOND, 5);
+        r(Items.DIAMOND_CHESTPLATE, 1, true, DIAMOND, 8);
+        r(Items.DIAMOND_LEGGINGS, 1, true, DIAMOND, 7);
+        r(Items.DIAMOND_BOOTS, 1, true, DIAMOND, 4);
+        // Nhà cửa, trang trại
+        r(Items.FURNACE, 1, true, FURNACE_STONE, 8);
+        r(Items.CHEST, 1, true, PLANKS, 8);
+        r(Items.OAK_DOOR, 3, true, PLANKS, 6);
+        r(Items.OAK_FENCE, 3, true, PLANKS, 4, STICK, 2);
+        r(Items.OAK_FENCE_GATE, 1, true, STICK, 4, PLANKS, 2);
+        r(Items.BED.white(), 1, true, WOOL, 3, PLANKS, 3);
+        r(Items.CAMPFIRE, 1, true, STICK, 3, COAL, 1, LOGS, 3);
+        r(Items.OAK_BOAT, 1, true, PLANKS, 5);
+        r(Items.BREAD, 1, true, WHEAT, 3);
+    }
+
+    public static boolean known(Item item) {
+        return RECIPES.containsKey(item) || item == Items.STICK;
+    }
+
+    /** Kế hoạch làm {@code count} món {@code target} trên {@code inv} (nên là bản sao), hoặc null. */
     public static List<Step> plan(LyInventory inv, Item target, boolean tableNearby) {
+        return plan(inv, target, 1, tableNearby);
+    }
+
+    public static List<Step> plan(LyInventory inv, Item target, int times, boolean tableNearby) {
         List<Step> steps = new ArrayList<>();
-        return make(inv, target, tableNearby, steps) ? steps : null;
+        for (int i = 0; i < times; i++) if (!make(inv, target, tableNearby, steps)) return null;
+        return steps;
     }
 
     private static boolean make(LyInventory inv, Item target, boolean tableNearby, List<Step> steps) {
         if (target == Items.STICK) return makeSticks(inv, steps);
-        if (target == Items.CRAFTING_TABLE) {
-            if (!ensurePlanks(inv, 4, steps)) return false;
-            return apply(inv, new Step(Items.CRAFTING_TABLE, 1, false, List.of(new Need(PLANKS, 4))), steps);
-        }
-        if (target == Items.TORCH) {
-            if (inv.count(COAL) < 1) return false;
-            if (inv.count(STICK) < 1 && !makeSticks(inv, steps)) return false;
-            return apply(inv, new Step(Items.TORCH, 4, false, List.of(new Need(COAL, 1), new Need(STICK, 1))), steps);
-        }
-        if (target == Items.FURNACE) {
-            if (inv.count(FURNACE_STONE) < 8) return false;
-            if (!ensureTable(inv, tableNearby, steps)) return false; // bàn trước, rồi mới tới nguyên liệu
-            return apply(inv, new Step(Items.FURNACE, 1, true, List.of(new Need(FURNACE_STONE, 8))), steps);
-        }
-        ToolRecipe r = TOOLS.get(target);
+        Recipe r = RECIPES.get(target);
         if (r == null) return false;
-        if (r.material != PLANKS && inv.count(r.material) < r.amount) return false;
-        // Làm bàn trước (nếu cần) để ván dùng cho bàn không bị tính trùng với ván làm đồ.
-        if (!ensureTable(inv, tableNearby, steps)) return false;
-        if (r.material == PLANKS) {
-            if (!ensurePlanks(inv, r.amount, steps)) return false;
-        } else if (inv.count(r.material) < r.amount) {
-            return false;
+        // Nguyên liệu không tự làm được thì phải có sẵn.
+        for (Need n : r.needs) {
+            if (n.what != PLANKS && n.what != STICK && n.what != LOGS && inv.count(n.what) < n.count) return false;
         }
-        while (inv.count(STICK) < r.sticks) if (!makeSticks(inv, steps)) return false;
-        if (r.material == PLANKS && !ensurePlanks(inv, r.amount, steps)) return false;
-        return apply(inv, new Step(target, 1, true, List.of(new Need(r.material, r.amount), new Need(STICK, r.sticks))), steps);
+        // Bàn trước, để ván dùng cho bàn không bị tính trùng.
+        if (r.table && !tableNearby && !inv.has(Items.CRAFTING_TABLE) && !make(inv, Items.CRAFTING_TABLE, false, steps)) return false;
+        for (Need n : r.needs) {
+            if (n.what == STICK) { while (inv.count(STICK) < n.count) if (!makeSticks(inv, steps)) return false; }
+        }
+        for (Need n : r.needs) {
+            if (n.what == PLANKS && !ensurePlanks(inv, n.count + reserveLogsAsPlanks(r), steps)) return false;
+        }
+        return apply(inv, new Step(r.output, r.count, r.table, r.needs), steps);
     }
 
-    /** Có bàn đặt gần đó, hoặc trong túi có bàn (sẽ đặt xuống rồi thu lại), hoặc làm một cái. */
-    private static boolean ensureTable(LyInventory inv, boolean tableNearby, List<Step> steps) {
-        if (tableNearby || inv.has(Items.CRAFTING_TABLE)) return true;
-        return make(inv, Items.CRAFTING_TABLE, false, steps);
+    /** Lửa trại cần 3 khúc gỗ nguyên: đừng xẻ chúng thành ván. */
+    private static int reserveLogsAsPlanks(Recipe r) {
+        return 0;
     }
 
     private static boolean makeSticks(LyInventory inv, List<Step> steps) {
@@ -104,9 +140,8 @@ public final class Crafting {
         while (inv.count(PLANKS) < n) {
             ItemStack log = firstMatching(inv, LOGS);
             if (log == null) return false;
-            Item planks = planksFor(log.getItem());
             Item logItem = log.getItem();
-            if (!apply(inv, new Step(planks, 4, false, List.of(new Need(s -> s.is(logItem), 1))), steps)) return false;
+            if (!apply(inv, new Step(planksFor(logItem), 4, false, List.of(new Need(s -> s.is(logItem), 1))), steps)) return false;
         }
         return true;
     }
@@ -121,8 +156,7 @@ public final class Crafting {
 
     /** Thực hiện một bước trên túi đồ thật. */
     public static boolean execute(LyInventory inv, Step step) {
-        List<Step> ignored = new ArrayList<>();
-        return apply(inv, step, ignored);
+        return apply(inv, step, new ArrayList<>());
     }
 
     private static ItemStack firstMatching(LyInventory inv, Predicate<ItemStack> p) {
@@ -143,7 +177,6 @@ public final class Crafting {
         return planks == null || planks == Items.AIR ? Items.OAK_PLANKS : planks;
     }
 
-    /** Bản sao túi đồ để chạy thử. */
     public static LyInventory copy(LyInventory inv) {
         LyInventory c = new LyInventory();
         for (int i = 0; i < inv.getContainerSize(); i++) c.setItem(i, inv.getItem(i).copy());

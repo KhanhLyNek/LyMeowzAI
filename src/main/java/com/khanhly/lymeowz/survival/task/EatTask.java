@@ -30,8 +30,8 @@ public class EatTask extends Task {
 
     @Override
     public void start(ServerLevel level) {
-        boolean starving = ly.getHunger() <= 4;
-        int slot = ly.inv().bestSlot(s -> (Tools.isGoodFood(s) || (starving && Tools.isFood(s))) ? Tools.nutrition(s) : 0);
+        int h = ly.getHunger();
+        int slot = ly.inv().bestSlot(s -> Tools.edible(s, h) ? Tools.nutrition(s) + (Tools.isGoodFood(s) ? 10 : 0) : 0);
         if (slot < 0) return;
         ly.stowHand();
         food = ly.inv().getItem(slot).split(1);

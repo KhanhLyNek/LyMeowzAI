@@ -1,26 +1,19 @@
 package com.khanhly.lymeowz.entity;
 
 import com.khanhly.lymeowz.chat.Brain;
-import com.khanhly.lymeowz.speech.Speech;
-import com.khanhly.lymeowz.mind.Mind;
-import com.khanhly.lymeowz.mind.MindData;
 import com.khanhly.lymeowz.compat.Compat;
 import com.khanhly.lymeowz.compat.LyMeowzBase;
 import com.khanhly.lymeowz.config.LyConfig;
-import com.khanhly.lymeowz.world.CompanionStore;
+import com.khanhly.lymeowz.mind.Mind;
+import com.khanhly.lymeowz.mind.MindData;
+import com.khanhly.lymeowz.speech.Speech;
+import com.khanhly.lymeowz.survival.Camp;
+import com.khanhly.lymeowz.survival.ItemNames;
 import com.khanhly.lymeowz.survival.LyInventory;
 import com.khanhly.lymeowz.survival.Survival;
 import com.khanhly.lymeowz.survival.Tools;
-import com.khanhly.lymeowz.survival.task.SmeltTask;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.SimpleMenuProvider;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.item.component.SwingAnimation;
-import net.minecraft.world.item.equipment.Equippable;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import java.util.function.Predicate;
+import com.khanhly.lymeowz.survival.task.StoreTask;
+import com.khanhly.lymeowz.world.CompanionStore;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -30,9 +23,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
@@ -41,8 +35,10 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.AvoidEntityGoal;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
@@ -50,75 +46,76 @@ import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.SwingAnimation;
+import net.minecraft.world.item.equipment.Equippable;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
- * LyMeowz – cô bạn đồng hành AI.
+ * Một "người chơi" AI độc lập.
  *
  * <ul>
- *   <li>FOLLOW: tự do đi chơi trong bán kính {@code followRadius} (mặc định 100 block) quanh người chơi.</li>
- *   <li>Đi quá xa / khác chiều không gian → tự tìm và dịch chuyển tới người chơi.</li>
- *   <li>Tự giữ chunk quanh mình bằng ticket tự hết hạn khi đang di chuyển.</li>
- *   <li>Người chơi thoát game / đi ngủ / ra lệnh → tự về nhà (mặc định là giường của người chơi).</li>
- *   <li>Không bao giờ chết hẳn: khi kiệt sức cô ấy "ngất" và về nhà nghỉ.</li>
+ *   <li>Không có chủ: cô ấy tự sống theo lộ trình sinh tồn (gỗ → đá → nhà → ruộng, chuồng → giường → sắt → kim cương).</li>
+ *   <li>Thường loanh quanh trong ~30 block quanh người chơi gần nhất; không có ai thì ở nhà của mình.</li>
+ *   <li>Mỗi người chơi có một độ thân thiết riêng; chỉ bạn bè mới nhờ được việc (đi theo, về nhà...).</li>
+ *   <li>Hỏi "toạ độ" thì cô ấy đọc toạ độ và đứng đợi, tối thì đốt lửa trại, có quái thì xây hộp đá trú.</li>
+ *   <li>Không có tên cho tới khi ai đó dùng bảng tên đặt cho cô ấy.</li>
+ *   <li>Tự vệ: tránh creeper, đánh quái lại gần, mặc giáp tốt nhất, cầm khiên; tối thì về giường ngủ.</li>
  * </ul>
- * Mọi dữ liệu lâu dài nằm trong {@link CompanionStore}, không nằm trong NBT.
+ * Dữ liệu lâu dài nằm trong {@link CompanionStore} (không nằm trong NBT).
  */
 public class LyMeowzEntity extends LyMeowzBase {
-
-    public enum Mode { FOLLOW, STAY, HOME }
-
-
-    // Trạng thái AI tạm thời
-    @Nullable private BlockPos roamTarget;
-    private int roamTimer;
-    private Vec3 lastStuckCheck = Vec3.ZERO;
-    private int stuckCount;
-    private boolean searching;
-    private boolean searchAnnounced;
-    private boolean ownerWasOnline;
-    /** Vài giây sau khi chủ vào game: im lặng đi tìm (lời chào do tracker nói). */
-    private int ownerJoinGrace;
-    private boolean travelingHome;
-    private boolean arrivedHomeSaid;
-    private boolean sleepHandled;
-    private boolean nightSaid;
-    private int chatterCooldown = 2400;
-    private int lastSpeakTick = -1000;
+    public static final float ACQUAINTANCE = 15, FRIEND = 40, CLOSE = 70;
+    /** Việc ở nhà: được phép đi xa người chơi hơn khi đang làm. */
+    private static final Set<String> BASE_TASKS = Set.of("xây nhà", "làm ruộng", "thu hoạch", "làm chuồng", "chăn nuôi",
+            "đặt giường", "cất đồ", "đào mỏ");
+    private static final boolean DEBUG = Boolean.getBoolean("lymeowz.debug");
 
     public final Brain brain = new Brain(this);
     public final Survival survival = new Survival(this);
-    /** Túi đồ – nạp lười từ CompanionStore. */
+    private final Camp camp = new Camp();
+
     @Nullable private LyInventory inventory;
+    @Nullable private Mind mind;
     private float hunger = -1;
     private int hungerTimer;
     private int blocksBroken;
-    /** Vị trí của chủ mỗi giây trong 3 giây gần nhất (để biết chủ đang đi hay đứng). */
-    private final Vec3[] ownerTrail = new Vec3[4];
-    private int idleStep;
+    private int lastSpeakTick = -1000;
     @Nullable private LivingEntity lastFightTarget;
-    private static final boolean DEBUG = Boolean.getBoolean("lymeowz.debug");
+    private Vec3 lastStuckCheck = Vec3.ZERO;
+    private int stuckCount;
+    private boolean nameSynced;
+    private boolean dismantling;
+    private int greetTicks;
+    private final Map<UUID, Long> lastNear = new HashMap<>();
+    private long nextChatter;
+    private boolean nightCamp;
 
     public LyMeowzEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
         this.setPersistenceRequired();
         this.setCanPickUpLoot(false);
-        if (this.getNavigation() instanceof GroundPathNavigation nav) {
-            nav.setCanOpenDoors(true);
-        }
-        this.setCustomName(Component.literal(LyConfig.get().name).withStyle(ChatFormatting.LIGHT_PURPLE));
-        this.setCustomNameVisible(true);
+        if (this.getNavigation() instanceof GroundPathNavigation nav) nav.setCanOpenDoors(true);
         for (EquipmentSlot slot : EquipmentSlot.values()) this.setDropChance(slot, 0f);
     }
 
@@ -128,120 +125,40 @@ public class LyMeowzEntity extends LyMeowzBase {
                 .add(Attributes.MOVEMENT_SPEED, 0.3)
                 .add(Attributes.ATTACK_DAMAGE, 1.0)
                 .add(Attributes.FOLLOW_RANGE, 64.0)
-                .add(Attributes.STEP_HEIGHT, 1.0);
+                .add(Attributes.STEP_HEIGHT, 0.6);
     }
 
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new MeleeAttackGoal(this, 1.25, true));
-        this.goalSelector.addGoal(2, new OpenDoorGoal(this, true));
+        this.goalSelector.addGoal(1, new AvoidEntityGoal<>(this, Creeper.class, 6.0f, 1.0, 1.3));
+        this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.15, true));
+        this.goalSelector.addGoal(3, new OpenDoorGoal(this, true));
         this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0f));
         this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
-        this.targetSelector.addGoal(1, new HurtByTargetGoal(this, Player.class));
-        addMonsterTargetGoal(2, e -> !(e instanceof Creeper) && e.distanceToSqr(this) < 14 * 14);
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        addMonsterTargetGoal(2, e -> !(e instanceof Creeper) && e.distanceToSqr(this) < 12 * 12 && !isSleeping()
+                && (getHealth() > 8 || mind().p().brave > 0.5f));
     }
 
-    // ------------------------------------------------------------------ data / owner
+    // ------------------------------------------------------------------ dữ liệu
 
     /**
-     * Luôn tra lại (chỉ là một lần tra HashMap): từ 1.21.9 một entity ở chunk xa có thể chỉ bị "ẩn" rồi hiện lại
-     * với cùng đối tượng Java, nên không được giữ bản sao – nếu cô ấy đã bị thay bằng bản mới thì phải biết ngay.
+     * Luôn tra lại (một lần tra HashMap): entity ở chunk xa có thể bị "ẩn" rồi hiện lại với cùng đối tượng Java.
      */
     @Nullable
     public CompanionStore.Data data() {
-        return CompanionStore.byCompanion(getUUID());
-    }
-
-    @Nullable
-    public UUID getOwnerUuid() {
-        CompanionStore.Data d = data();
-        return d == null ? null : UUID.fromString(d.owner);
-    }
-
-    public Mode getMode() {
-        CompanionStore.Data d = data();
-        if (d == null) return Mode.FOLLOW;
-        try { return Mode.valueOf(d.mode); } catch (IllegalArgumentException e) { return Mode.FOLLOW; }
-    }
-
-    private MinecraftServer server() {
-        return ((ServerLevel) level()).getServer();
+        return CompanionStore.get(getUUID());
     }
 
     private CompanionStore.Spot here() {
         return new CompanionStore.Spot(Compat.dimId(level().dimension()), getBlockX(), getBlockY(), getBlockZ());
     }
 
-    public void setOwner(ServerPlayer player) {
-        CompanionStore.assign(player.getUUID(), getUUID(), here());
-        rememberOwnerSpawn(player);
+    private MinecraftServer server() {
+        return ((ServerLevel) level()).getServer();
     }
-
-    public boolean isOwner(Player player) {
-        CompanionStore.Data d = data();
-        return d != null && d.owner.equals(player.getUUID().toString());
-    }
-
-    @Nullable
-    public ServerPlayer getOwner() {
-        UUID id = getOwnerUuid();
-        if (id == null || !(level() instanceof ServerLevel)) return null;
-        ServerPlayer p = server().getPlayerList().getPlayer(id);
-        return p != null ? p : com.khanhly.lymeowz.command.SurvivalTest.fakeOwner(id);
-    }
-
-    public void setMode(Mode mode) {
-        CompanionStore.Data d = data();
-        if (d != null) { d.mode = mode.name(); CompanionStore.markDirty(); }
-        this.roamTarget = null;
-        this.searching = false;
-        this.arrivedHomeSaid = false;
-        this.getNavigation().stop();
-    }
-
-    public void setHome(ServerLevel level, BlockPos pos) {
-        CompanionStore.Data d = data();
-        if (d == null) return;
-        d.home = new CompanionStore.Spot(Compat.dimId(level.dimension()), pos.getX(), pos.getY(), pos.getZ());
-        CompanionStore.markDirty();
-    }
-
-    @Nullable
-    public BlockPos getHomePos() {
-        CompanionStore.Data d = data();
-        return d == null || d.home == null ? null : new BlockPos(d.home.x, d.home.y, d.home.z);
-    }
-
-    // ------------------------------------------------------------------ talking
-
-    /** Nói một câu cho chủ và người chơi xung quanh nghe ({@code %s} = tên cô ấy). */
-    public void say(String text) {
-        sayRaw(text.replace("%s", LyConfig.get().name));
-    }
-
-    /** Tự ghép câu theo ý muốn nói + cảm xúc + tính cách rồi nói ra. */
-    public void speak(Speech.Act act, Speech.Ctx ctx) {
-        String line = Speech.build(this, act, ctx);
-        if (!line.isEmpty()) sayRaw(line);
-    }
-
-    public void speak(Speech.Act act) {
-        speak(act, Speech.Ctx.of());
-    }
-
-    private void speakRare(Speech.Act act, int cooldownTicks) {
-        speakRare(act, cooldownTicks, Speech.Ctx.of());
-    }
-
-    private void speakRare(Speech.Act act, int cooldownTicks, Speech.Ctx ctx) {
-        if (this.tickCount - lastSpeakTick > cooldownTicks) speak(act, ctx);
-    }
-
-    // ------------------------------------------------------------------ tâm trí
-
-    @Nullable private Mind mind;
 
     public Mind mind() {
         CompanionStore.Data d = data();
@@ -254,331 +171,429 @@ public class LyMeowzEntity extends LyMeowzBase {
         return mind;
     }
 
-    public boolean isOwnerUuid(java.util.UUID id) {
+    public float affinity(Player p) {
+        return mind().affinity(p.getUUID());
+    }
+
+    /** Tên do người chơi đặt, hoặc null nếu chưa có tên. */
+    @Nullable
+    public String displayName() {
         CompanionStore.Data d = data();
-        return d != null && d.owner.equals(id.toString());
+        if (d != null && d.name != null) return d.name;
+        Component c = getCustomName();
+        return c == null ? null : c.getString();
     }
 
-    private long lastDiscoverySpeech = -100000;
-
-    /** Mắt vừa thấy một nơi mới → kể cho chủ (nếu chủ ở gần). */
-    public void onDiscovered(Mind.PlaceKind kind, BlockPos pos) {
-        ServerPlayer o = getOwner();
-        if (o == null || o.level() != level() || o.distanceTo(this) > 40) return;
-        if (level().getGameTime() - lastDiscoverySpeech < 20 * 60) return;
-        if (getRandom().nextFloat() > 0.4f + 0.5f * mind().p().talkative) return;
-        lastDiscoverySpeech = level().getGameTime();
-        speak(Speech.Act.DISCOVERY, Speech.Ctx.of().place(kind, pos));
+    public void setHome(ServerLevel level, BlockPos pos) {
+        CompanionStore.Data d = data();
+        if (d == null) return;
+        d.home = new CompanionStore.Spot(Compat.dimId(level.dimension()), pos.getX(), pos.getY(), pos.getZ());
+        CompanionStore.markDirty();
     }
 
-    /** Nói nguyên văn. */
+    /** Nhà của cô ấy (cùng chiều không gian), hoặc null. */
+    @Nullable
+    public BlockPos getHomePos() {
+        return structurePos(data() == null ? null : data().home);
+    }
+
+    /** Vị trí một công trình của cô ấy ("house", "farm", "pen", "chest", "bed") nếu ở cùng chiều không gian. */
+    @Nullable
+    public BlockPos structure(String key) {
+        CompanionStore.Data d = data();
+        return d == null ? null : structurePos(d.structures.get(key));
+    }
+
+    @Nullable
+    private BlockPos structurePos(@Nullable CompanionStore.Spot s) {
+        if (s == null || !s.dim.equals(Compat.dimId(level().dimension()))) return null;
+        return new BlockPos(s.x, s.y, s.z);
+    }
+
+    public int storedCount() {
+        BlockPos chest = structure("chest");
+        return chest == null || !(level() instanceof ServerLevel sl) ? 0 : StoreTask.stored(sl, chest);
+    }
+
+    // ------------------------------------------------------------------ yêu cầu của người chơi
+
+    @Nullable
+    public CompanionStore.Request request() {
+        CompanionStore.Data d = data();
+        return d == null ? null : d.request;
+    }
+
+    public void setRequest(String type, ServerPlayer player, long durationTicks, @Nullable BlockPos at) {
+        CompanionStore.Data d = data();
+        if (d == null) return;
+        CompanionStore.Request r = new CompanionStore.Request();
+        r.type = type;
+        r.player = player.getUUID().toString();
+        r.playerName = player.getName().getString();
+        r.until = durationTicks <= 0 ? Long.MAX_VALUE : level().getGameTime() + durationTicks;
+        r.at = at == null ? null : new CompanionStore.Spot(Compat.dimId(level().dimension()), at.getX(), at.getY(), at.getZ());
+        d.request = r;
+        CompanionStore.markDirty();
+        survival.interrupt((ServerLevel) level());
+        getNavigation().stop();
+        camp.reset(at);
+    }
+
+    public void clearRequest() {
+        CompanionStore.Data d = data();
+        if (d == null || d.request == null) return;
+        d.request = null;
+        CompanionStore.markDirty();
+        if (camp.enclosed()) dismantling = true;
+    }
+
+    @Nullable
+    private ServerPlayer requester(CompanionStore.Request r) {
+        try {
+            UUID id = UUID.fromString(r.player);
+            ServerPlayer p = server().getPlayerList().getPlayer(id);
+            return p != null ? p : com.khanhly.lymeowz.command.SurvivalTest.fakePlayer(id);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** Người cô ấy đang "để ý": người nhờ việc, hoặc người chơi gần nhất trong 32 block. */
+    @Nullable
+    public ServerPlayer focusPlayer() {
+        CompanionStore.Request r = request();
+        if (r != null) {
+            ServerPlayer p = requester(r);
+            if (p != null) return p;
+        }
+        return level() instanceof ServerLevel sl ? nearestPlayer(sl, 32) : null;
+    }
+
+    @Nullable
+    public ServerPlayer nearestPlayer(ServerLevel level, double range) {
+        ServerPlayer best = null;
+        double bd = range * range;
+        for (ServerPlayer p : level.players()) {
+            if (p.isSpectator() || !p.isAlive()) continue;
+            double d = p.distanceToSqr(this);
+            if (d < bd) { bd = d; best = p; }
+        }
+        ServerPlayer fake = com.khanhly.lymeowz.command.SurvivalTest.fakeNear(this, range);
+        if (fake != null && fake.distanceToSqr(this) < bd) best = fake;
+        return best;
+    }
+
+    // ------------------------------------------------------------------ nói
+
+    /** Tự ghép câu theo ý muốn nói + cảm xúc + tính cách rồi nói ra. */
+    public void speak(Speech.Act act, Speech.Ctx ctx) {
+        String line = Speech.build(this, act, ctx);
+        if (!line.isEmpty()) sayRaw(line, ctx.listener instanceof ServerPlayer sp ? sp : null);
+    }
+
+    public void speak(Speech.Act act) {
+        speak(act, Speech.Ctx.of());
+    }
+
+    private void speakRare(Speech.Act act, int cooldownTicks, Speech.Ctx ctx) {
+        if (this.tickCount - lastSpeakTick > cooldownTicks) speak(act, ctx);
+    }
+
     public void sayRaw(String line) {
+        sayRaw(line, null);
+    }
+
+    /** Nói cho người chơi trong 32 block nghe (và cả {@code to} dù ở xa – ví dụ khi trả lời toạ độ). */
+    public void sayRaw(String line, @Nullable ServerPlayer to) {
         if (!(level() instanceof ServerLevel sl)) return;
+        String n = displayName();
         Component msg = Component.literal("<")
-                .append(Component.literal(LyConfig.get().name).withStyle(ChatFormatting.LIGHT_PURPLE))
+                .append(Component.literal(n != null ? n : "Cô gái lạ").withStyle(n != null ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.GRAY))
                 .append(Component.literal("> " + line));
-        ServerPlayer owner = getOwner();
-        if (owner != null) owner.sendSystemMessage(msg);
+        if (to != null) to.sendSystemMessage(msg);
         for (ServerPlayer p : sl.players()) {
-            if (p != owner && p.distanceToSqr(this) < 32 * 32) p.sendSystemMessage(msg);
+            if (p != to && p.distanceToSqr(this) < 32 * 32) p.sendSystemMessage(msg);
         }
         lastSpeakTick = this.tickCount;
-        if (com.khanhly.lymeowz.command.SurvivalTest.running()) com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival] <{}> {}", LyConfig.get().name, line);
+        if (com.khanhly.lymeowz.command.SurvivalTest.running())
+            com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival] <{}> {}", n != null ? n : "Cô gái lạ", line);
     }
-
 
     public void hearts() {
         if (level() instanceof ServerLevel sl) Compat.hearts(sl, getX(), getY() + 2.0, getZ());
     }
 
-    // ------------------------------------------------------------------ main AI loop
+    // ------------------------------------------------------------------ vòng lặp chính
 
     @Override
     protected void lyServerTick(ServerLevel level) {
-        LyConfig cfg = LyConfig.get();
         CompanionStore.Data d = data();
-        if (d == null && CompanionStore.isRetired(getUUID())) { discard(); return; }
-        ServerPlayer owner = getOwner();
-
-        if (d != null) tickHunger(level);
-        if (this.tickCount % 100 == 0) { flushInventory(); equipArmor(); }
-        if (this.tickCount % 20 == 0) {
-            if (d != null) {
-                if (d.last == null || !d.last.same(Compat.dimId(level.dimension()), getBlockX(), getBlockY(), getBlockZ())) {
-                    d.last = here();
-                    CompanionStore.markDirty();
-                }
-            }
-            if (owner != null) rememberOwnerSpawn(owner);
+        if (d == null) {
+            if (CompanionStore.isRetired(getUUID())) { discard(); return; }
+            d = CompanionStore.create(getUUID(), here()); // vừa được /summon
         }
-        // Tự giữ chunk khi đang theo người chơi hoặc đang trên đường về nhà.
-        // Gia hạn dày (mỗi 5 tick): ở 1.21.5–1.21.8 gia hạn thưa khiến chunk đôi khi bị hạ cấp
-        // ngay khi cô ấy vừa bước sang chunk mới.
-        if (this.tickCount % 5 == 0) {
-            boolean keep = (owner != null && getMode() == Mode.FOLLOW) || travelingHome;
-            if (keep) Compat.keepChunk(level, blockPosition(), cfg.chunkLoadRadius);
-            if (DEBUG && tickCount % 20 == 0) com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[debug] tick={} pos={} keep={} home={}",
-                    tickCount, blockPosition().toShortString(), keep, travelingHome);
-        }
-
-        if (d == null) return; // chưa có chủ: đứng chơi một mình
-
+        LyConfig cfg = LyConfig.get();
+        tickHunger(level);
+        if (tickCount % 100 == 0) { flushInventory(); equipGear(); }
         if (tickCount % 20 == 0) {
-            mind().tickSecond(level, owner, survival.busy() && !survival.currentName().equals("nghỉ"), survival.currentName());
-            if (owner != null && d.home != null) mind().remember(Mind.PlaceKind.HOME, new BlockPos(d.home.x, d.home.y, d.home.z), 1);
+            if (d.last == null || !d.last.same(Compat.dimId(level.dimension()), getBlockX(), getBlockY(), getBlockZ())) {
+                d.last = here();
+                CompanionStore.markDirty();
+            }
+            syncName(level, d);
+        }
+        // Như một người chơi thật: thế giới quanh cô ấy luôn chạy.
+        if (tickCount % 5 == 0) Compat.keepChunk(level, blockPosition(), cfg.chunkLoadRadius);
+
+        ServerPlayer focus = focusPlayer();
+        if (tickCount % 20 == 0) {
+            mind().tickSecond(level, focus, survival.busy() && !survival.currentName().equals("nghỉ") && !isSleeping(),
+                    isSleeping() ? "ngủ" : survival.currentName());
+            noticePlayers(level);
         }
         LivingEntity tgt = getTarget();
         if (lastFightTarget != null && !lastFightTarget.isAlive() && lastFightTarget instanceof Enemy)
             mind().event(Mind.Event.KILLED_MOB, null, Speech.mobName(lastFightTarget.getType()), lastFightTarget.blockPosition());
         lastFightTarget = tgt != null && tgt.isAlive() ? tgt : null;
-        if (owner == null && ownerWasOnline) mind().event(Mind.Event.OWNER_LEFT, null, null, null);
-        if (owner != null && !ownerWasOnline) ownerJoinGrace = 100;
-        ownerWasOnline = owner != null;
-        if (ownerJoinGrace > 0) ownerJoinGrace--;
+        if (tgt != null && tgt.isAlive() && tickCount % 10 == 0) holdBestWeapon();
+        if (isSprinting() && getNavigation().isDone()) setSprinting(false);
+        if (greetTicks > 0) tickGreet();
 
-        if (owner == null) { // chủ offline → về nhà đợi
-            survival.interrupt(level);
+        if (isSleeping()) { tickSleeping(level); return; }
+        if (dismantling) {
             survival.tickMaintenance(level);
-            tickGoHome(level);
+            if (!camp.dismantle(this, level)) { dismantling = false; nightCamp = false; }
             return;
         }
 
-        if (cfg.goHomeWhenOwnerSleeps && owner.isSleeping()) {
-            if (!sleepHandled) { sleepHandled = true; arrivedHomeSaid = true; speak(Speech.Act.OWNER_SLEEP); survival.interrupt(level); }
-            tickGoHome(level);
-            return;
+        CompanionStore.Request r = d.request;
+        if (r != null && level.getGameTime() > r.until) {
+            if ("WAIT".equals(r.type)) speakRare(Speech.Act.RELEASED, 200, Speech.Ctx.of());
+            clearRequest();
+            r = null;
         }
-        sleepHandled = false;
-
-        Mode mode = getMode();
-        switch (mode) {
-            case STAY -> {
-                survival.tickMaintenance(level);
-                getNavigation().stop();
-                getLookControl().setLookAt(owner, 30f, 30f);
+        if (r != null) {
+            ServerPlayer who = requester(r);
+            switch (r.type) {
+                case "FOLLOW" -> { if (who != null) { tickFollow(level, who); return; } }
+                case "WAIT" -> { tickWait(level, r, who); return; }
+                case "HOME" -> { if (tickGoHome(level)) return; clearRequest(); }
+                default -> clearRequest();
             }
-            case HOME -> { survival.tickMaintenance(level); tickGoHome(level); }
-            case FOLLOW -> tickFollow(level, owner);
         }
-
-        if (mode != Mode.HOME) defendOwner(owner);
-        tickMood(level, owner);
+        if (tickNight(level)) return;
+        tickIndependent(level, cfg);
     }
 
-    // ------------------------------------------------------------------ FOLLOW
+    // ------------------------------------------------------------------ sống độc lập
 
-    private void tickFollow(ServerLevel level, ServerPlayer owner) {
-        LyConfig cfg = LyConfig.get();
-        travelingHome = false;
-
-        boolean otherLevel = owner.level() != level;
-        double dist = otherLevel ? Double.MAX_VALUE : distanceTo(owner);
-
-        // 1) Quá xa hoặc khác chiều → tự tìm người chơi bằng dịch chuyển.
-        if (otherLevel || dist > cfg.teleportDistance) {
-            if (!owner.isSpectator() && teleportToOwner(owner)) {
-                if (ownerJoinGrace == 0 && tickCount - lastSpeakTick > 200) speak(Speech.Act.FOUND_YOU);
+    private void tickIndependent(ServerLevel level, LyConfig cfg) {
+        ServerPlayer anchor = nearestPlayer(level, cfg.noticePlayerRange);
+        if (anchor != null && affinity(anchor) < -30) anchor = null; // tránh người mình ghét
+        BlockPos center;
+        int radius;
+        if (anchor != null) {
+            double dist = distanceTo(anchor);
+            int stay = cfg.stayNearPlayer;
+            double tolerance = BASE_TASKS.contains(survival.currentName()) ? cfg.noticePlayerRange : stay + 14;
+            if (dist > tolerance) {
+                survival.interrupt(level);
+                travelTo(level, anchor.blockPosition(), dist);
+                return;
             }
-            return;
-        }
-
-        if (getTarget() != null && getTarget().isAlive()) return; // đang đánh nhau
-
-        // 2) Ngoài bán kính tự do → chạy về phía người chơi.
-        if (dist > cfg.followRadius) {
-            if (!searching) {
-                searching = true;
-                searchAnnounced = ownerJoinGrace == 0;
-                if (searchAnnounced) speak(Speech.Act.SEARCHING);
+            center = anchor.blockPosition();
+            radius = stay;
+        } else {
+            BlockPos home = getHomePos();
+            center = home != null ? home : blockPosition();
+            radius = cfg.homeWorkRadius;
+            if (home != null && !BASE_TASKS.contains(survival.currentName()) && home.distSqr(blockPosition()) > 96 * 96) {
+                survival.interrupt(level);
+                travelTo(level, home, Math.sqrt(home.distSqr(blockPosition())));
+                return;
             }
-            roamTarget = null;
-            getNavigation().moveTo(owner, 1.35);
-            if (checkStuck()) teleportToOwner(owner);
-            return;
         }
-        if (searching && dist < 10) {
-            searching = false;
-            if (searchAnnounced) speak(Speech.Act.FOUND_YOU);
-        }
+        survival.tick(level, center, radius);
+        maybeChatter(level, anchor);
+    }
 
-        // 3) Trong bán kính: chủ đang đi → đi theo; chủ đứng lại → làm việc quanh chủ; hết việc → đứng nghỉ.
-        int work = cfg.workRadius;
-        if (Compat.isNight(level)) work = Math.min(work, 12);   // ban đêm ở gần chủ
-        boolean moving = ownerMoving(owner);
-        if (dist > work || (moving && dist > 6)) {
+    /** Đi bộ (chạy nếu xa) tới một chỗ, từng chặng ~24 block. */
+    private void travelTo(ServerLevel level, BlockPos to, double dist) {
+        if (getNavigation().isDone() || tickCount % 60 == 0) {
+            setSprinting(dist > 12);
+            Vec3 dir = Vec3.atBottomCenterOf(to).subtract(position());
+            double step = Math.min(dist, 24);
+            Vec3 hop = position().add(dir.normalize().scale(step));
+            BlockPos hp = BlockPos.containing(hop);
+            int y = dist <= 24 ? to.getY() : (level.isLoaded(hp) ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, hp.getX(), hp.getZ()) : to.getY());
+            if (!getNavigation().moveTo(hop.x, y, hop.z, 1.0)) stuckCount++;
+        }
+        if (checkStuck() || stuckCount > 8) {
+            stuckCount = 0;
+            // Kẹt thật sự (hố sâu, nước...): nhảy tới chỗ đứng an toàn gần đó cho đỡ kẹt.
+            BlockPos near = blockPosition().offset(getRandom().nextIntBetweenInclusive(-6, 6), 0, getRandom().nextIntBetweenInclusive(-6, 6));
+            teleportNear(level, near, 1, 4);
+        }
+    }
+
+    /** Bạn thân ở gần thì thỉnh thoảng bắt chuyện (rất ít). */
+    private void maybeChatter(ServerLevel level, @Nullable ServerPlayer anchor) {
+        if (!LyConfig.get().idleChatter || anchor == null || level.getGameTime() < nextChatter) return;
+        nextChatter = level.getGameTime() + 20 * 60 * (8 + getRandom().nextInt(12));
+        if (affinity(anchor) >= CLOSE && distanceTo(anchor) < 16 && getTarget() == null
+                && getRandom().nextFloat() < 0.4f + 0.5f * mind().p().talkative) {
+            speak(Speech.Act.SMALLTALK, Speech.Ctx.of().to(anchor));
+        }
+    }
+
+    /** Ghi nhận ai đang ở gần; bạn thân mới tới thì cúi chào kiểu người chơi (ngồi xuống đứng lên). */
+    private void noticePlayers(ServerLevel level) {
+        long now = level.getGameTime();
+        for (ServerPlayer p : level.players()) {
+            double d = p.distanceTo(this);
+            if (d > 24 || p.isSpectator()) continue;
+            Long last = lastNear.put(p.getUUID(), now);
+            if (d < 7 && (last == null || now - last > 20 * 120) && affinity(p) >= CLOSE && greetTicks == 0) {
+                greetTicks = 40;
+                getLookControl().setLookAt(p, 30f, 30f);
+                if (getRandom().nextBoolean()) speak(Speech.Act.GREET, Speech.Ctx.of().to(p));
+            }
+        }
+    }
+
+    private void tickGreet() {
+        greetTicks--;
+        setPose(greetTicks > 0 && (greetTicks / 5) % 2 == 0 ? Pose.CROUCHING : Pose.STANDING);
+    }
+
+    // ------------------------------------------------------------------ đêm: ngủ / cắm trại / làm đêm
+
+    private boolean nightOwl() {
+        var p = mind().p();
+        return p.brave > 0.65f && p.diligent > 0.5f;
+    }
+
+    /** @return true nếu đêm nay cô ấy đang lo ngủ / trú. */
+    private boolean tickNight(ServerLevel level) {
+        boolean night = level.dimensionType().hasSkyLight() && Compat.isNight(level);
+        if (!night) {
+            if (nightCamp) { nightCamp = false; if (camp.enclosed()) dismantling = true; }
+            return false;
+        }
+        // Cú đêm có giáp + kiếm thì làm đêm (thường là đào mỏ).
+        if (nightOwl() && Survival.bestTier(inventoryWithHand(), Tools.Kind.SWORD) >= 2 && getHealth() > 12) return false;
+        BlockPos bed = structure("bed");
+        if (bed != null && !(level.getBlockState(bed).getBlock() instanceof BedBlock)) {
+            CompanionStore.Data d = data();
+            if (d != null) { d.structures.remove("bed"); d.bed = null; CompanionStore.markDirty(); }
+            bed = null;
+        }
+        if (bed != null && bed.distSqr(blockPosition()) < 128 * 128) {
+            if (getTarget() != null && getTarget().isAlive()) return false; // đánh xong đã
             survival.interrupt(level);
-            if (getNavigation().isDone() || tickCount % 20 == 0) getNavigation().moveTo(owner, dist > 16 ? 1.3 : 1.1);
-            if (checkStuck() && dist > 16) teleportToOwner(owner);
-            return;
+            double d = Vec3.atBottomCenterOf(bed).distanceTo(position());
+            if (d > 2.0) { travelTo(level, bed, d); return true; }
+            getNavigation().stop();
+            startSleeping(bed);
+            return true;
         }
-        if (moving) {
-            survival.interrupt(level);
-            if (dist > 4) { if (getNavigation().isDone()) getNavigation().moveTo(owner, 1.0); }
-            else getNavigation().stop();
-            return;
-        }
-        survival.tick(level, owner.blockPosition(), work);
-        if (!survival.busy()) idle(owner, dist);
+        // Không có giường: có bạn ở gần thì thức cùng bạn; không thì cắm trại tại chỗ.
+        ServerPlayer p = nearestPlayer(level, 12);
+        if (p != null && affinity(p) >= FRIEND) return false;
+        if (!nightCamp) { nightCamp = true; survival.interrupt(level); camp.reset(blockPosition()); }
+        survival.tickMaintenance(level);
+        getNavigation().stop();
+        camp.hold(this, level, true, hostilesNear(level, 16) || level.canSeeSky(blockPosition()));
+        return true;
     }
 
-    /** Rảnh: đứng gần chủ, nhìn chủ / nhìn quanh, thỉnh thoảng nhích vài bước. */
-    private void idle(ServerPlayer owner, double dist) {
-        if (dist > 5) {
-            if (getNavigation().isDone()) getNavigation().moveTo(owner, 1.0);
-            return;
-        }
-        if (dist < 3.5 && !getNavigation().isDone()) getNavigation().stop();
-        if (--idleStep <= 0) {
-            idleStep = 200 + getRandom().nextInt(400);
-            if (getRandom().nextInt(3) == 0) {
-                BlockPos p = owner.blockPosition().offset(getRandom().nextIntBetweenInclusive(-3, 3), 0, getRandom().nextIntBetweenInclusive(-3, 3));
-                getNavigation().moveTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5, 0.7);
-            }
-        }
-    }
-
-    /** Chủ có đi được hơn 4 block trong ~3 giây vừa rồi không. */
-    private boolean ownerMoving(ServerPlayer owner) {
+    private void tickSleeping(ServerLevel level) {
+        getNavigation().stop();
+        boolean night = Compat.isNight(level);
+        boolean threat = getTarget() != null && getTarget().isAlive() && getTarget().distanceToSqr(this) < 16;
+        if (!night || threat || getHealth() < 6) { stopSleeping(); return; }
         if (tickCount % 20 == 0) {
-            System.arraycopy(ownerTrail, 0, ownerTrail, 1, ownerTrail.length - 1);
-            ownerTrail[0] = owner.position();
+            MindData m = mind().data();
+            m.energy = Math.min(100, m.energy + 1.5f);
+            m.fear = Math.max(0, m.fear - 1);
         }
-        Vec3 old = ownerTrail[ownerTrail.length - 1];
-        return old != null && ownerTrail[0] != null && old.distanceToSqr(ownerTrail[0]) > 4 * 4;
     }
 
-    private void defendOwner(ServerPlayer owner) {
+    private boolean hostilesNear(ServerLevel level, double r) {
+        return !level.getEntitiesOfClass(Mob.class, getBoundingBox().inflate(r), m -> m instanceof Enemy && m.isAlive()).isEmpty();
+    }
+
+    // ------------------------------------------------------------------ yêu cầu: đi theo / đợi / về nhà
+
+    private void tickFollow(ServerLevel level, ServerPlayer p) {
+        boolean other = p.level() != level;
+        double dist = other ? Double.MAX_VALUE : distanceTo(p);
+        if (other || dist > LyConfig.get().teleportDistance) {
+            if (!p.isSpectator() && p.level() instanceof ServerLevel pl) teleportNear(pl, p.blockPosition(), 1, 3);
+            return;
+        }
+        defend(p);
+        if (getTarget() != null && getTarget().isAlive()) return;
+        if (dist > 10) {
+            survival.interrupt(level);
+            travelTo(level, p.blockPosition(), dist);
+            return;
+        }
+        if (p.getDeltaMovement().horizontalDistanceSqr() > 0.003 && dist > 4) {
+            survival.interrupt(level);
+            if (getNavigation().isDone() || tickCount % 20 == 0) getNavigation().moveTo(p, 1.0);
+            return;
+        }
+        survival.tick(level, p.blockPosition(), 10);
+    }
+
+    private void defend(ServerPlayer p) {
         if (tickCount % 10 != 0) return;
-        LivingEntity current = getTarget();
-        if (current != null && current.isAlive()) return;
-        LivingEntity threat = owner.getLastHurtByMob();
-        if (!(threat instanceof Enemy) || !threat.isAlive()) threat = owner.getLastHurtMob();
-        if (mind().p().brave < 0.25f && getHealth() < 10) return; // quá nhút nhát lúc yếu → không xông vào
+        if (getTarget() != null && getTarget().isAlive()) return;
+        LivingEntity threat = p.getLastHurtByMob();
+        if (!(threat instanceof Enemy) || !threat.isAlive()) threat = p.getLastHurtMob();
         if (threat instanceof Enemy && threat.isAlive() && !(threat instanceof Creeper)
-                && threat.level() == level() && threat.distanceToSqr(this) < 24 * 24) {
+                && threat.level() == level() && threat.distanceToSqr(this) < 20 * 20 && (getHealth() > 8 || mind().p().brave > 0.5f)) {
             setTarget(threat);
-            speakRare(Speech.Act.FIGHT, 600);
         }
     }
 
-    private void tickMood(ServerLevel level, ServerPlayer owner) {
-        if (owner.level() != level) return;
-        double d2 = owner.distanceToSqr(this);
-        if (level.dimensionType().hasSkyLight()) {
-            if (Compat.isNight(level)) {
-                if (!nightSaid && d2 < 32 * 32) { nightSaid = true; speak(Speech.Act.NIGHT); }
-            } else {
-                nightSaid = false;
-            }
-        }
-        if (LyConfig.get().idleChatter && --chatterCooldown <= 0) {
-            chatterCooldown = 3600 + getRandom().nextInt(4800);
-            if (d2 < 24 * 24 && getTarget() == null && getRandom().nextFloat() < 0.3f + 0.7f * mind().p().talkative)
-                speak(Speech.Act.SMALLTALK);
-        }
-    }
-
-    // ------------------------------------------------------------------ HOME
-
-    private void tickGoHome(ServerLevel level) {
-        HomeSpot home = resolveHome(level);
-        if (home == null) { getNavigation().stop(); return; }
-
-        if (home.level != level) {
-            travelingHome = true;
-            Compat.keepChunk(home.level, home.pos, 2);
-            teleportNear(home.level, home.pos, 0, 2);
+    /** Đợi ở toạ độ đã nói: đứng yên, tối thì đốt lửa, có quái thì xây hộp trú; người kia tới thì dỡ ra. */
+    private void tickWait(ServerLevel level, CompanionStore.Request r, @Nullable ServerPlayer who) {
+        BlockPos at = r.at == null ? blockPosition() : new BlockPos(r.at.x, r.at.y, r.at.z);
+        if (who != null && who.level() == level && who.distanceTo(this) < 6) {
+            mind().event(Mind.Event.OWNER_RETURNED, who, null, null);
+            speak(Speech.Act.MET_AT_SPOT, Speech.Ctx.of().to(who));
+            clearRequest();
             return;
         }
-        double dh = Vec3.atBottomCenterOf(home.pos).distanceTo(position());
-        if (dh > 512) { // quá xa để đi bộ
-            travelingHome = true;
-            Compat.keepChunk(level, home.pos, 2);
-            teleportNear(level, home.pos, 0, 2);
-            return;
-        }
-        if (dh > 3) {
-            travelingHome = true;
-            arrivedHomeSaid = false;
-            if (getNavigation().isDone() || tickCount % 60 == 0) {
-                // Đi từng chặng ~24 block về phía nhà.
-                Vec3 dir = Vec3.atBottomCenterOf(home.pos).subtract(position());
-                double step = Math.min(dh, 24);
-                Vec3 hop = position().add(dir.normalize().scale(step));
-                BlockPos hopPos = BlockPos.containing(hop);
-                int y = dh <= 24 ? home.pos.getY()
-                        : (level.isLoaded(hopPos) ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, hopPos.getX(), hopPos.getZ()) : home.pos.getY());
-                if (!getNavigation().moveTo(hop.x, y, hop.z, 1.1)) stuckCount++;
-            }
-            if (checkStuck() || stuckCount > 6) {
-                stuckCount = 0;
-                teleportNear(level, home.pos, 0, 2);
-            }
-            return;
-        }
-        // Tới nhà rồi.
-        travelingHome = false;
-        if (!arrivedHomeSaid) {
-            arrivedHomeSaid = true;
-            ServerPlayer owner = getOwner();
-            if (owner != null && !owner.isSleeping()) speak(Speech.Act.ARRIVED_HOME);
-        }
-        if (getNavigation().isDone() && getRandom().nextInt(200) == 0) {
-            BlockPos p = home.pos.offset(getRandom().nextIntBetweenInclusive(-4, 4), 0, getRandom().nextIntBetweenInclusive(-4, 4));
-            getNavigation().moveTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5, 0.7);
-        }
+        if (getTarget() != null && getTarget().isAlive() && getHealth() > 8) return; // tự vệ trước
+        double d = Vec3.atBottomCenterOf(at).distanceTo(position());
+        if (d > 3 && !camp.enclosed()) { travelTo(level, at, d); return; }
+        survival.tickMaintenance(level);
+        getNavigation().stop();
+        if (who != null && who.level() == level) getLookControl().setLookAt(who, 10f, 10f);
+        boolean dark = Compat.isNight(level) || level.getMaxLocalRawBrightness(blockPosition()) < 7;
+        camp.hold(this, level, dark, hostilesNear(level, 16) || (dark && getHealth() < 14));
     }
 
-    private record HomeSpot(ServerLevel level, BlockPos pos) {}
-
-    @Nullable
-    private HomeSpot fromSpot(MinecraftServer server, @Nullable CompanionStore.Spot s) {
-        if (s == null) return null;
-        var key = Compat.dim(s.dim);
-        ServerLevel l = key == null ? null : server.getLevel(key);
-        return l == null ? null : new HomeSpot(l, new BlockPos(s.x, s.y, s.z));
+    /** Đi về nhà. @return false khi đã tới nơi (hoặc không có nhà). */
+    private boolean tickGoHome(ServerLevel level) {
+        BlockPos home = getHomePos();
+        if (home == null) return false;
+        double d = Vec3.atBottomCenterOf(home).distanceTo(position());
+        if (d <= 3) return false;
+        survival.interrupt(level);
+        if (d > 600) { teleportNear(level, home, 0, 2); return true; }
+        travelTo(level, home, d);
+        return true;
     }
 
-    @Nullable
-    private HomeSpot resolveHome(ServerLevel current) {
-        MinecraftServer server = current.getServer();
-        CompanionStore.Data d = data();
-        if (d != null) {
-            HomeSpot h = fromSpot(server, d.home);
-            if (h == null) h = fromSpot(server, d.ownerSpawn);
-            if (h != null) return h;
-        }
-        ServerLevel ow = server.overworld();
-        return new HomeSpot(ow, Compat.worldSpawn(ow));
-    }
-
-    private void rememberOwnerSpawn(ServerPlayer owner) {
-        CompanionStore.Data d = data();
-        GlobalPos spawn = Compat.respawn(owner);
-        if (d == null || spawn == null) return;
-        String dim = Compat.dimId(spawn.dimension());
-        BlockPos p = spawn.pos();
-        if (d.ownerSpawn == null || !d.ownerSpawn.same(dim, p.getX(), p.getY(), p.getZ())) {
-            d.ownerSpawn = new CompanionStore.Spot(dim, p.getX(), p.getY(), p.getZ());
-            CompanionStore.markDirty();
-        }
-    }
-
-    // ------------------------------------------------------------------ teleport / stuck
-
-    public boolean teleportToOwner(ServerPlayer owner) {
-        if (!(owner.level() instanceof ServerLevel ol)) return false;
-        roamTarget = null;
-        searching = false;
-        if (teleportNear(ol, owner.blockPosition(), 1, 3)) return true;
-        // Chỗ chủ đứng chật quá (hang hẹp, Nether...) → đứng ngay cạnh chủ.
-        if (owner.onGround() || owner.isInWater()) { doTeleport(ol, owner.blockPosition()); return true; }
-        return false;
-    }
+    // ------------------------------------------------------------------ dịch chuyển / kẹt
 
     /** Tìm chỗ an toàn quanh {@code center} rồi dịch chuyển tới (kể cả khác chiều không gian). */
     public boolean teleportNear(ServerLevel target, BlockPos center, int minR, int maxR) {
-        // 1) Thử ngẫu nhiên vài chỗ gần.
+        if (!target.isLoaded(center)) { Compat.keepChunk(target, center, 2); target.getChunk(center); }
         for (int i = 0; i < 24; i++) {
             int dx = getRandom().nextIntBetweenInclusive(-maxR, maxR);
             int dz = getRandom().nextIntBetweenInclusive(-maxR, maxR);
@@ -588,7 +603,6 @@ public class LyMeowzEntity extends LyMeowzBase {
                 if (isSafeSpot(target, p)) { doTeleport(target, p); return true; }
             }
         }
-        // 2) Quét có hệ thống, từ gần ra xa, cả lên lẫn xuống.
         int r = maxR + 3;
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
@@ -599,7 +613,6 @@ public class LyMeowzEntity extends LyMeowzBase {
             if (isSafeSpot(target, p)) { best = p; bestD = d; }
         }
         if (best != null) { doTeleport(target, best); return true; }
-        // 3) Thế giới không có trần (không phải Nether): lên mặt đất ngay trên điểm đó.
         if (!target.dimensionType().hasCeiling()) {
             int y = target.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, center.getX(), center.getZ());
             BlockPos top = new BlockPos(center.getX(), y, center.getZ());
@@ -610,7 +623,7 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     private boolean isSafeSpot(ServerLevel l, BlockPos p) {
         BlockPos below = p.below();
-        if (!l.getBlockState(below).isFaceSturdy(l, below, Direction.UP)) return false;
+        if (!l.isLoaded(p) || !l.getBlockState(below).isFaceSturdy(l, below, Direction.UP)) return false;
         if (!l.getFluidState(p).isEmpty() || !l.getFluidState(p.above()).isEmpty()) return false;
         return l.noCollision(this, getType().getDimensions().makeBoundingBox(Vec3.atBottomCenterOf(p)));
     }
@@ -620,18 +633,12 @@ public class LyMeowzEntity extends LyMeowzBase {
         stuckCount = 0;
         resetFallDistance();
         Vec3 pos = Vec3.atBottomCenterOf(p);
-        // Giữ chunk ở điểm đến để cô ấy không bị lưu xuống đĩa ngay khi vừa tới (1.21.9+ không còn spawn chunks).
         Compat.keepChunk(target, p, 2);
-        if (target == level()) {
-            teleportTo(pos.x, pos.y, pos.z);
-        } else {
-            // Đổi chiều không gian: Minecraft tạo bản sao giữ nguyên UUID → dữ liệu trong CompanionStore vẫn khớp.
-            Compat.changeDimension(this, target, pos, getYRot(), getXRot());
-        }
+        if (target == level()) teleportTo(pos.x, pos.y, pos.z);
+        else Compat.changeDimension(this, target, pos, getYRot(), getXRot());
         lastStuckCheck = pos;
     }
 
-    /** Mỗi 2 giây kiểm tra: đang muốn đi mà gần như không nhúc nhích → coi như bị kẹt. */
     private boolean checkStuck() {
         if (tickCount % 40 != 0) return false;
         Vec3 now = position();
@@ -639,62 +646,83 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (moving && now.distanceToSqr(lastStuckCheck) < 0.5) stuckCount++;
         else stuckCount = 0;
         lastStuckCheck = now;
-        if (stuckCount >= 3) { stuckCount = 0; return true; }
+        if (stuckCount >= 4) { stuckCount = 0; return true; }
         return false;
     }
 
-    // ------------------------------------------------------------------ interaction
+    /** Bị kẹt: đang ở trong chuồng thì mở cổng đi ra; không thì nhảy ra chỗ trống gần đó. */
+    public void unstuck(ServerLevel level) {
+        BlockPos pen = structure("pen");
+        if (pen != null && com.khanhly.lymeowz.survival.task.PenTask.inside(pen).inflate(0.3, 0, 0.3).contains(position())) {
+            survival.interrupt(level);
+            survival.forceTask(level, new com.khanhly.lymeowz.survival.task.SimpleTasks.LeavePen(this, pen));
+            return;
+        }
+        BlockPos near = blockPosition().offset(getRandom().nextIntBetweenInclusive(-5, 5), 0, getRandom().nextIntBetweenInclusive(-5, 5));
+        teleportNear(level, near, 2, 5);
+    }
+
+    // ------------------------------------------------------------------ tên (bảng tên)
+
+    private void syncName(ServerLevel level, CompanionStore.Data d) {
+        Component c = getCustomName();
+        String now = c == null ? null : c.getString();
+        if (!nameSynced) {
+            nameSynced = true;
+            if (now == null && d.name != null) { setCustomName(Component.literal(d.name)); return; }
+        }
+        if (Objects.equals(now, d.name) || now == null) return;
+        d.name = now;
+        CompanionStore.markDirty();
+        ServerPlayer by = nearestPlayer(level, 8);
+        mind().event(Mind.Event.NAMED, by, now, blockPosition());
+        speak(Speech.Act.NAMED, Speech.Ctx.of().to(by));
+        hearts();
+    }
+
+    // ------------------------------------------------------------------ tương tác
 
     @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if (stack.is(Items.NAME_TAG)) return InteractionResult.PASS; // để bảng tên của Minecraft làm việc
         if (level().isClientSide()) return InteractionResult.SUCCESS;
         ServerPlayer sp = (ServerPlayer) player;
-        ItemStack stack = player.getItemInHand(hand);
+        float a = affinity(player);
+        if (isSleeping()) { speakRare(Speech.Act.SHY, 100, Speech.Ctx.of().to(player)); return InteractionResult.SUCCESS; }
 
-        if (data() == null) {
-            CompanionStore.Data existing = CompanionStore.byOwner(player.getUUID());
-            if (existing != null) {
-                speak(Speech.Act.STRANGER, Speech.Ctx.of().to(player));
-                return InteractionResult.SUCCESS;
-            }
-            setOwner(sp);
-            speak(Speech.Act.FIRST_MEET);
-            hearts();
-            return InteractionResult.SUCCESS;
-        }
-        if (!isOwner(player)) {
-            speakRare(Speech.Act.STRANGER, 60, Speech.Ctx.of().to(player));
-            return InteractionResult.SUCCESS;
-        }
-
-        // Shift + chuột phải tay không: mở túi đồ của cô ấy.
         if (player.isShiftKeyDown() && stack.isEmpty()) {
-            openInventory(sp);
+            if (a >= CLOSE) openInventory(sp);
+            else speakRare(Speech.Act.NOT_CLOSE, 40, Speech.Ctx.of().to(player));
             return InteractionResult.SUCCESS;
         }
+        if (a < -30) { speakRare(Speech.Act.REFUSE, 60, Speech.Ctx.of().to(player)); return InteractionResult.SUCCESS; }
+
         FoodProperties food = stack.get(DataComponents.FOOD);
-        if (food != null && getHunger() < 20) {
+        if (food != null && getHunger() < 18) {
             addHunger(food.nutrition());
             heal(2);
-            mind().event(com.khanhly.lymeowz.mind.Mind.Event.FED, player, com.khanhly.lymeowz.survival.ItemNames.of(stack.getItem()), null);
+            mind().event(Mind.Event.FED, player, ItemNames.of(stack.getItem()), null);
             speak(Speech.Act.GIFT_THANKS, Speech.Ctx.of().to(player).item(stack.getItem(), 1));
             useOne(stack, player);
             hearts();
             return InteractionResult.SUCCESS;
         }
         if (Compat.isFlower(stack)) {
-            mind().event(com.khanhly.lymeowz.mind.Mind.Event.GIFT, player, "hoa", null);
+            mind().event(Mind.Event.GIFT, player, "hoa", null);
+            mind().gift(player, 3);
             speak(Speech.Act.PRAISED, Speech.Ctx.of().to(player));
             useOne(stack, player);
             hearts();
             return InteractionResult.SUCCESS;
         }
         if (!stack.isEmpty()) {
-            // Đưa đồ cho cô ấy: cất vào túi.
             ItemStack left = inv().put(stack.copy());
             int given = stack.getCount() - left.getCount();
             if (given > 0) {
-                mind().event(com.khanhly.lymeowz.mind.Mind.Event.GIFT, player, com.khanhly.lymeowz.survival.ItemNames.of(stack.getItem()), null);
+                int value = Tools.value(stack) * Math.max(1, given / 8);
+                mind().event(Mind.Event.GIFT, player, ItemNames.of(stack.getItem()), null);
+                mind().gift(player, value);
                 speak(Speech.Act.GIFT_THANKS, Speech.Ctx.of().to(player).item(stack.getItem(), given));
                 if (!player.getAbilities().instabuild) stack.shrink(given);
             } else {
@@ -702,8 +730,23 @@ public class LyMeowzEntity extends LyMeowzBase {
             }
             return InteractionResult.SUCCESS;
         }
-        if (getMode() == Mode.FOLLOW) { setMode(Mode.STAY); speak(Speech.Act.ACK, Speech.Ctx.of().text("STAY")); }
-        else { setMode(Mode.FOLLOW); speak(Speech.Act.ACK, Speech.Ctx.of().text("FOLLOW")); }
+        // Tay không: bạn bè thì rủ đi cùng / để cô ấy tự do; người lạ thì cô ấy ngại.
+        if (a >= FRIEND) {
+            CompanionStore.Request r = request();
+            if (r != null && "FOLLOW".equals(r.type) && r.player.equals(player.getUUID().toString())) {
+                clearRequest();
+                speak(Speech.Act.RELEASED, Speech.Ctx.of().to(player));
+            } else {
+                setRequest("FOLLOW", sp, 0, null);
+                speak(Speech.Act.ACK, Speech.Ctx.of().to(player).text("FOLLOW"));
+            }
+        } else if (a >= ACQUAINTANCE) {
+            speakRare(Speech.Act.GREET, 60, Speech.Ctx.of().to(player));
+        } else {
+            getLookControl().setLookAt(player, 30f, 30f);
+            speakRare(mind().knows(player.getUUID()) ? Speech.Act.SHY : Speech.Act.STRANGER, 80, Speech.Ctx.of().to(player));
+            mind().event(Mind.Event.CHATTED, player, null, null);
+        }
         return InteractionResult.SUCCESS;
     }
 
@@ -711,18 +754,22 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (!player.getAbilities().instabuild) stack.shrink(1);
     }
 
-    // ------------------------------------------------------------------ damage / never die
+    // ------------------------------------------------------------------ bị thương / ngất
 
     @Override
     protected boolean lyAllowHurt(ServerLevel level, DamageSource source, float amount) {
-        if (data() == null || source.is(DamageTypes.GENERIC_KILL)) return true;
+        if (source.is(DamageTypes.GENERIC_KILL)) return true;
+        if (isSleeping()) stopSleeping();
+        if (com.khanhly.lymeowz.command.SurvivalTest.running())
+            com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     (bị thương {} bởi {} ở {}, đang {})", amount, source.getMsgId(), blockPosition().toShortString(), survival.currentName());
         Entity attacker = source.getEntity();
-        if (attacker instanceof Player p) mind().event(com.khanhly.lymeowz.mind.Mind.Event.HIT_BY_PLAYER, p, null, blockPosition());
-        else if (attacker instanceof net.minecraft.world.entity.Mob mob && amount > 0)
-            mind().event(com.khanhly.lymeowz.mind.Mind.Event.HURT_BY_MOB, null, Speech.mobName(mob.getType()), blockPosition());
-        if (attacker instanceof Player p && isOwner(p)) {
-            speakRare(Speech.Act.HURT_BY_OWNER, 100, Speech.Ctx.of());
-            return false;
+        if (attacker instanceof Player p) {
+            mind().event(Mind.Event.HIT_BY_PLAYER, p, null, blockPosition());
+            CompanionStore.Request r = request();
+            if (r != null && r.player.equals(p.getUUID().toString())) clearRequest();
+            if (affinity(p) > FRIEND) { speakRare(Speech.Act.HURT_BY_OWNER, 100, Speech.Ctx.of().to(p)); return false; }
+        } else if (attacker instanceof Mob mob && amount > 0) {
+            mind().event(Mind.Event.HURT_BY_MOB, null, Speech.mobName(mob.getType()), blockPosition());
         }
         if (getHealth() - amount <= 1.0f) {
             faint(level);
@@ -737,22 +784,22 @@ public class LyMeowzEntity extends LyMeowzBase {
         removeAllEffects();
         setTarget(null);
         resetFallDistance();
-        mind().event(com.khanhly.lymeowz.mind.Mind.Event.FAINTED, null, null, blockPosition());
+        mind().event(Mind.Event.FAINTED, null, null, blockPosition());
         speak(Speech.Act.FAINT);
-        setMode(Mode.HOME);
-        HomeSpot home = resolveHome(level);
-        if (home != null) teleportNear(home.level, home.pos, 0, 2);
+        clearRequest();
+        survival.interrupt(level);
+        BlockPos home = getHomePos();
+        if (home != null) teleportNear(level, home, 0, 2);
     }
 
     @Override
     public void remove(RemovalReason reason) {
         flushInventory();
-        if (level() instanceof ServerLevel sl) survival.interrupt(sl);
+        if (level() instanceof ServerLevel sl) { survival.interrupt(sl); camp.cancel(this, sl); }
         if (DEBUG) com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[debug] remove {} at {}", reason, blockPosition().toShortString());
         super.remove(reason);
         if (reason.shouldDestroy() && level() instanceof ServerLevel) {
-            CompanionStore.Data d = CompanionStore.byCompanion(getUUID());
-            if (d != null) CompanionStore.remove(d);
+            CompanionStore.remove(getUUID());
             CompanionStore.forgetRetired(getUUID());
         }
     }
@@ -761,11 +808,10 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     @Override
     public boolean canAttack(LivingEntity target) {
-        if (target instanceof Player p && isOwner(p)) return false;
+        if (target instanceof Player p) return affinity(p) < -30 && super.canAttack(target);
         if (target instanceof LyMeowzEntity) return false;
         return super.canAttack(target);
     }
-
 
     // ------------------------------------------------------------------ túi đồ
 
@@ -778,7 +824,6 @@ public class LyMeowzEntity extends LyMeowzBase {
         return inventory;
     }
 
-    /** Ghi túi đồ vào CompanionStore (đồ đang cầm tay được Minecraft tự lưu cùng entity). */
     public void flushInventory() {
         if (inventory == null || !(level() instanceof ServerLevel)) return;
         CompanionStore.Data d = data();
@@ -800,7 +845,6 @@ public class LyMeowzEntity extends LyMeowzBase {
         return inv().count(p) + (p.test(getMainHandItem()) && !getMainHandItem().isEmpty() ? getMainHandItem().getCount() : 0);
     }
 
-    /** Cất đồ đang cầm vào túi. */
     public void stowHand() {
         ItemStack hand = getMainHandItem();
         if (hand.isEmpty()) return;
@@ -837,43 +881,52 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (slot >= 0 && Tools.weaponScore(inv().getItem(slot)) > current) holdSlot(slot);
     }
 
-    /** Tự mặc giáp có trong túi vào ô còn trống. */
-    private void equipArmor() {
-        if (inventory == null && data() == null) return;
+    /** Mặc giáp tốt nhất có trong túi (thay đồ kém hơn), cầm khiên tay trái. */
+    private void equipGear() {
+        if (data() == null) return;
         for (int i = 0; i < inv().getContainerSize(); i++) {
             ItemStack s = inv().getItem(i);
             Equippable eq = s.get(DataComponents.EQUIPPABLE);
             if (eq == null) continue;
             EquipmentSlot slot = eq.slot();
-            if (slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND || !getItemBySlot(slot).isEmpty()) continue;
-            if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) continue;
+            if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR || Tools.armorRank(s) == 0) continue;
+            ItemStack worn = getItemBySlot(slot);
+            if (!worn.isEmpty() && Tools.armorRank(s) <= Tools.armorRank(worn)) continue;
             setItemSlot(slot, inv().takeSlot(i));
+            if (!worn.isEmpty()) inv().put(worn);
+            if (level() instanceof ServerLevel sl)
+                sl.playSound(null, blockPosition(), eq.equipSound().value(), SoundSource.NEUTRAL, 1f, 1f);
+        }
+        if (getOffhandItem().isEmpty()) {
+            ItemStack shield = inv().takeOne(s -> s.is(Items.SHIELD));
+            if (!shield.isEmpty()) setItemSlot(EquipmentSlot.OFFHAND, shield);
         }
     }
 
     public void openInventory(ServerPlayer player) {
         stowHand();
         LyInventory container = inv();
+        String n = displayName();
         player.openMenu(new SimpleMenuProvider((id, playerInv, p) -> ChestMenu.threeRows(id, playerInv, container),
-                Component.literal("Túi đồ của " + LyConfig.get().name)));
+                Component.literal("Túi đồ của " + (n != null ? n : "cô ấy"))));
     }
 
-    /** Đưa hết tài nguyên cho chủ (giữ lại dụng cụ, lò, bàn và 4 phần ăn). */
-    public int giveResourcesTo(ServerPlayer owner) {
+    /** Đưa tài nguyên cho bạn (giữ lại dụng cụ, giáp, bàn, lò và 4 phần ăn). */
+    public int giveResourcesTo(ServerPlayer to) {
         if (!(level() instanceof ServerLevel sl)) return 0;
         stowHand();
         int keptFood = 0, given = 0;
         for (int i = 0; i < inv().getContainerSize(); i++) {
             ItemStack s = inv().getItem(i);
             if (s.isEmpty()) continue;
-            boolean tool = Tools.isKind(s, Tools.Kind.PICKAXE) || Tools.isKind(s, Tools.Kind.AXE) || Tools.isKind(s, Tools.Kind.SWORD);
+            boolean tool = s.isDamageableItem();
             boolean gear = s.is(Items.FURNACE) || s.is(Items.CRAFTING_TABLE) || s.get(DataComponents.EQUIPPABLE) != null;
             if (tool || gear) continue;
             if (Tools.isGoodFood(s) && keptFood < 4) { keptFood += s.getCount(); continue; }
             ItemStack out = inv().takeSlot(i);
             given += out.getCount();
             ItemEntity e = new ItemEntity(sl, getX(), getEyeY() - 0.3, getZ(), out);
-            Vec3 dir = owner.position().subtract(position()).normalize().scale(0.3);
+            Vec3 dir = to.position().subtract(position()).normalize().scale(0.3);
             e.setDeltaMovement(dir.x, 0.25, dir.z);
             e.setThrower(this);
             e.setPickUpDelay(40);
@@ -891,30 +944,32 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     public void walkTo(BlockPos pos, double speed) {
         var path = getNavigation().createPath(pos, 1);
-        if (path != null) getNavigation().moveTo(path, speed);
+        if (path != null) {
+            setSprinting(Math.sqrt(pos.distSqr(blockPosition())) > 14);
+            getNavigation().moveTo(path, speed);
+        }
     }
 
     public void placeBlock(ServerLevel level, BlockPos pos, BlockState state) {
         getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
-        level.setBlock(pos, state, Block.UPDATE_ALL);
+        level.setBlock(pos, Block.updateFromNeighbourShapes(state, level, pos), Block.UPDATE_ALL);
         var sound = state.getSoundType();
         level.playSound(null, pos, sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
         swingArm();
     }
 
-    /** Đặt block xuống một ô trống cạnh mình (không chắn chỗ chủ đứng). */
+    /** Đặt block xuống một ô trống cạnh mình (không chắn chỗ người chơi đứng). */
     @Nullable
     public BlockPos placeNear(ServerLevel level, BlockState state) {
         BlockPos feet = blockPosition();
-        ServerPlayer owner = getOwner();
+        ServerPlayer near = nearestPlayer(level, 6);
         for (int r = 1; r <= 2; r++) for (int dx = -r; dx <= r; dx++) for (int dz = -r; dz <= r; dz++) {
             if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
             for (int dy = 0; dy >= -1; dy--) {
                 BlockPos p = feet.offset(dx, dy, dz);
                 if (!level.getBlockState(p).canBeReplaced() || !level.getFluidState(p).isEmpty()) continue;
                 if (!level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP)) continue;
-                if (owner != null && (owner.blockPosition().equals(p) || owner.blockPosition().above().equals(p))) continue;
-                if (isProtected(p) && p.distSqr(feet) > 4) continue;
+                if (near != null && (near.blockPosition().equals(p) || near.blockPosition().above().equals(p))) continue;
                 placeBlock(level, p, state);
                 return p;
             }
@@ -931,21 +986,36 @@ public class LyMeowzEntity extends LyMeowzBase {
         return null;
     }
 
-    /** Gần nhà (trong protectRadius) thì không chặt/đào/săn – không phá đồ của chủ. */
+    /** Không chặt/đào/săn quanh giường của người chơi, và không phá công trình của chính mình. */
     public boolean isProtected(BlockPos p) {
-        CompanionStore.Data d = data();
-        if (d == null) return false;
+        if (!(level() instanceof ServerLevel sl)) return false;
         int r = LyConfig.get().protectRadius;
-        for (CompanionStore.Spot s : new CompanionStore.Spot[]{d.home, d.ownerSpawn}) {
-            if (s == null || !s.dim.equals(Compat.dimId(level().dimension()))) continue;
-            double dx = s.x - p.getX(), dz = s.z - p.getZ();
-            if (dx * dx + dz * dz <= (double) r * r) return true;
+        String dim = Compat.dimId(sl.dimension());
+        for (ServerPlayer pl : sl.getServer().getPlayerList().getPlayers()) {
+            GlobalPos spawn = Compat.respawn(pl);
+            if (spawn == null || !Compat.dimId(spawn.dimension()).equals(dim)) continue;
+            if (spawn.pos().distSqr(p) <= (double) r * r) return true;
+        }
+        CompanionStore.Data d = data();
+        if (d != null) {
+            for (var e : d.structures.entrySet()) {
+                CompanionStore.Spot s = e.getValue();
+                if (!s.dim.equals(dim)) continue;
+                double dx = s.x + 2 - p.getX(), dz = s.z + 2 - p.getZ(), dy = s.y - p.getY();
+                if (dx * dx + dz * dz <= 7 * 7 && Math.abs(dy) < 8) return true;
+            }
         }
         return false;
     }
 
     public void onBlockBroken(BlockState state) {
         if (++blocksBroken % 16 == 0) addHunger(-1);
+    }
+
+    /** Ghi nhận đã chế được một món (không khoe ra miệng). */
+    public void announceCrafted(net.minecraft.world.item.Item item) {
+        if (item == Items.STICK || item == Items.OAK_PLANKS) return;
+        mind().event(Mind.Event.CRAFTED, null, ItemNames.of(item), null);
     }
 
     // ------------------------------------------------------------------ đói
@@ -965,58 +1035,31 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (d != null) { d.food = hunger; CompanionStore.markDirty(); }
     }
 
-    /** Đói dần theo thời gian; no thì tự hồi máu; đói lả thì mất máu (không chết). */
     private void tickHunger(ServerLevel level) {
         if (++hungerTimer % 20 != 0) return;
         getHunger();
-        if (hungerTimer % (20 * 40) == 0) addHunger(-1);       // mỗi 40 giây
+        int rate = isSleeping() ? 20 * 90 : isSprinting() ? 20 * 25 : 20 * 40;
+        if (hungerTimer % rate == 0) addHunger(-1);
         if (hungerTimer % 80 == 0) {
             if (hunger >= 18 && getHealth() < getMaxHealth()) { heal(1); addHunger(-0.5f); }
-            else if (hunger <= 0 && getHealth() > 2) {
-                hurtServer(level, damageSources().starve(), 1);
-                sayWorkLine("starve", null);
-            }
+            else if (hunger <= 0 && getHealth() > 2) hurtServer(level, damageSources().starve(), 1);
         }
     }
 
-    // ------------------------------------------------------------------ lời nói khi làm việc
+    // ------------------------------------------------------------------ sự kiện từ bên ngoài
 
-    private final java.util.Map<String, Integer> workSaid = new java.util.HashMap<>();
-
-    /** Nói câu về công việc, mỗi loại tối đa 1 lần / 3 phút. */
-    public void sayWork(String key, String line) {
-        Integer last = workSaid.get(key);
-        if (last != null && tickCount - last < 20 * 180) return;
-        workSaid.put(key, tickCount);
-        say(line);
+    /** Một người chơi vừa giết con quái đang đánh cô ấy. */
+    public void savedBy(ServerPlayer p, LivingEntity mob) {
+        mind().event(Mind.Event.SAVED, p, Speech.mobName(mob.getType()), blockPosition());
+        if (getRandom().nextFloat() < 0.7f) speak(Speech.Act.SAVED_THANKS, Speech.Ctx.of().to(p));
     }
 
-    private void sayWorkLine(String key, String[] lines) {
-        Integer last = workSaid.get(key);
-        if (last != null && tickCount - last < 20 * 180) return;
-        workSaid.put(key, tickCount);
-        speak(Speech.Act.HUNGRY);
-    }
-
-    public void announceCrafted(net.minecraft.world.item.Item item) {
-        if (item == Items.STICK || item == Items.OAK_PLANKS) return;
-        mind().event(com.khanhly.lymeowz.mind.Mind.Event.CRAFTED, null, com.khanhly.lymeowz.survival.ItemNames.of(item), null);
-        speak(Speech.Act.CRAFTED, Speech.Ctx.of().item(item, 1));
-    }
-
-    // ------------------------------------------------------------------ events from tracker
-
-    /** Gọi khi chủ vừa vào game và tìm thấy cô ấy. */
-    public void onOwnerReturned(ServerPlayer owner) {
-        if (getMode() == Mode.HOME) setMode(Mode.FOLLOW);
-        mind().event(com.khanhly.lymeowz.mind.Mind.Event.OWNER_RETURNED, owner, null, null);
-        speak(Speech.Act.WELCOME_BACK, Speech.Ctx.of().to(owner));
-        hearts();
-        // Chạy ra đón chủ trước rồi mới đi chơi tiếp.
-        if (getMode() == Mode.FOLLOW && owner.level() == level()) {
-            roamTarget = owner.blockPosition();
-            roamTimer = 300;
-            getNavigation().moveTo(owner, 1.3);
-        }
+    /** Debug: tóm tắt trạng thái. */
+    public String status() {
+        CompanionStore.Request r = request();
+        return (isSleeping() ? "đang ngủ" : survival.currentName())
+                + (r != null ? ", yêu cầu " + r.type + " của " + r.playerName : "")
+                + ", máu " + (int) getHealth() + "/" + (int) getMaxHealth() + ", đói " + getHunger() + "/20"
+                + ", giai đoạn " + com.khanhly.lymeowz.survival.Roadmap.current(this).title;
     }
 }

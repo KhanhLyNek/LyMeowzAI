@@ -53,6 +53,13 @@ public class MindData {
         public float affinity;
         public int good, bad;
         public long lastSeen;
+        /** Thân dần theo thời gian ở cạnh nhau (có trần) – phải làm gì đó tử tế mới thân hơn. */
+        public float together;
+        /** Giới hạn độ thân tăng được mỗi ngày (Minecraft): làm thân cần thời gian. */
+        public long gainDay = -1;
+        public float gainToday;
+        /** Lần cuối bị người này đánh (lifeTicks). */
+        public long lastHit = -100000;
     }
 
     public static class Episode {

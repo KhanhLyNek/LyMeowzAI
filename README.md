@@ -1,107 +1,174 @@
-# LyMeowz AI 🌸 — bản 2.0 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 3.0 (Minecraft 26.3)
 
-> *"Hihi, mình định đi săn, sắp hết đồ ăn rồi nè~"*
-
-Mod **Fabric cho Minecraft 26.3** thêm **LyMeowz**, một cô bạn đồng hành biết **sinh tồn như người chơi thật**.
-Cô ấy có túi đồ, biết chặt cây, đào đá, chế tạo, đi săn, nướng thịt và tự ăn khi đói. Cô ấy có **tính cách, cảm xúc
-và trí nhớ** riêng, tự quyết định nên làm gì, và tự ghép câu để nói chuyện mà không cần Internet.
+Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
+Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
+và đi dần theo một lộ trình sinh tồn tới cuối game. Cô ấy ít nói, và **làm thân với cô ấy cần thời gian**.
 Câu cửa miệng: **"Mugyu~"**, khi không hiểu hoặc khi ngại ngùng.
 
-## Sinh tồn như người chơi
+## Một người chơi độc lập
 
-- **Túi đồ thật (27 ô).** Shift + chuột phải tay không vào cô ấy để mở túi; chuột phải khi cầm đồ để tặng đồ.
-- **Đào và chặt như người chơi:** phải đứng trong tầm với và vung tay, block nứt dần theo đúng tốc độ của dụng cụ.
-  Đồ rơi vào túi, dụng cụ bị mòn rồi gãy. Lúc chặt cây cô ấy cầm rìu, lúc đào đá thì cầm cuốc.
-- **Tiến trình công nghệ:** gỗ → ván → que → bàn chế tạo → đồ gỗ → đá cuội → đồ đá → lò nung → nung sắt → đồ sắt.
-  Công thức và số lượng nguyên liệu giống bản vanilla. Cô ấy đặt bàn chế tạo hoặc lò ra dùng, xong thì **thu về**.
-- **Đói và ăn:** thanh no 0–20 giống người chơi. Đói thì lấy đồ ăn ra ăn (không ăn thịt sống trừ khi đói lả),
-  no thì tự hồi máu.
-- **Đi săn có chừng mực:** chỉ săn con trưởng thành và luôn chừa lại ít nhất 2 con mỗi loài.
-- **Không phá đồ của bạn:** chỉ chặt cây có lá tự mọc và chỉ đào đá tự nhiên lộ ra ngoài. Không đào xuống dưới chân,
-  không làm gì trong vòng 16 block quanh nhà và giường của bạn.
-- **Đi theo hay làm việc:** khi bạn di chuyển, cô ấy bỏ việc để đi theo. Khi bạn đứng lại, cô ấy làm việc quanh bạn
-  (bán kính 24 block, ban đêm thu lại 12 block). Hết việc thì cô ấy **đứng nghỉ** cạnh bạn chứ không chạy lung tung.
+- **Mỗi thế giới có một cô.** Lần đầu có người chơi vào thế giới, cô ấy xuất hiện ở đâu đó cách 40–60 block.
+- **Không có tên** cho tới khi bạn dùng **bảng tên** đặt cho cô ấy. Trước đó, trong khung chat cô ấy hiện là *Cô gái lạ*.
+- **Không đi theo ai cả.** Cô ấy thường loanh quanh trong khoảng **30 block** quanh người chơi gần nhất (trong 96 block).
+  Không có ai ở gần thì cô ấy về nhà của mình và sống một mình. Khi làm việc ở nhà (xây, làm ruộng, đào mỏ…) cô ấy có thể
+  đi xa hơn.
+- **Thế giới quanh cô ấy luôn chạy**, như quanh một người chơi: cô ấy tự giữ chunk quanh mình, server khởi động lại
+  thì cô ấy tiếp tục cuộc sống ở chỗ cũ. Nếu entity bị mất, mod tạo lại cô ấy ở chỗ cũ với nguyên trí nhớ, túi đồ, nhà cửa.
+
+## Hành động như người chơi
+
+- **Nhìn thấy mới đào được.** Muốn phá block nào cô ấy phải đứng trong tầm với và **nhìn thấy** nó. Bị lá, cỏ, hoa che
+  thì phá lớp che trước, giống người chơi vẫn làm. Không còn chặt xuyên lá.
+- Block nứt dần theo đúng tốc độ của dụng cụ. Đồ rơi vào túi, dụng cụ bị mòn. Chặt cây thì cầm rìu, đào đá thì cầm cuốc.
+- **Đào mỏ kiểu cầu thang:** đào bậc thang xuống tới độ sâu cần (tầng sắt ~Y16, tầng kim cương ~Y-54), rồi đào hầm chính
+  1×2 có nhánh hai bên. Cô ấy cắm đuốc khi tối, thấy quặng ở thành hầm thì đào theo, gặp nham thạch hay nước thì bịt lại
+  bằng đá, rồi đi ngược đường cũ lên mặt đất.
+- **Chạy** khi đi xa, **ngồi thuyền** thư giãn ngắm trời, **ngồi xuống đứng lên** chào bạn thân, tối **nằm giường ngủ**.
+- **Tự vệ:** tránh xa creeper, đánh quái lại gần, tự mặc **giáp tốt nhất** đang có, cầm **khiên** tay trái. Yếu thì
+  chạy, đói thì ăn.
+
+## Lộ trình sinh tồn
+
+Cô ấy tính giai đoạn của mình từ những gì đang có, nên nếu mất đồ thì tự quay lại bước trước.
+
+| # | Giai đoạn | Cô ấy làm gì |
+|---|---|---|
+| 1 | Đồ gỗ | chặt cây, bàn chế tạo, cuốc và rìu gỗ |
+| 2 | Đồ đá | đào đá, làm cuốc, rìu, kiếm đá và lò nung |
+| 3 | Dựng nhà | gom ~80 khối đá, xây nhà 5×5 có cửa, đuốc, bàn chế tạo, **rương** |
+| 4 | Làm ruộng | nhổ cỏ lấy hạt, làm cuốc, cày đất, trồng lúa (có xô nước thì đổ nước giữa ruộng), thu hoạch và gieo lại, làm bánh mì |
+| 5 | Làm chuồng | chế hàng rào, dựng chuồng có cổng, **cầm đồ ăn dụ thú về**, cho ăn để chúng đẻ, cắt lông cừu, đông quá thì làm thịt bớt |
+| 6 | Làm giường | kiếm 3 len (cắt lông cừu hoặc săn cừu), chế giường, đặt vào nhà; từ đó tối về ngủ |
+| 7 | Đồ sắt | đào mỏ tầng sắt, nung, làm cuốc, kiếm, khiên, giáp sắt, xô, kéo |
+| 8 | Kim cương | đào xuống đáy tìm kim cương, làm cuốc và kiếm kim cương, nâng giáp |
+| 9 | Nether | *chưa làm* |
+| 10 | Rồng Ender | *chưa làm* |
+
+Túi gần đầy thì cô ấy về nhà mở rương cất đồ thừa, hết đồ ăn thì lấy ra. Mở rương nhà cô ấy ra xem, bạn sẽ thấy cô ấy
+**giàu hơn bạn tưởng**. Ban đêm, nếu có giường thì cô ấy về ngủ. Nếu chưa có giường thì cô ấy cắm trại tại chỗ, đốt lửa
+và xây một hộp đá quanh mình để trú, sáng ra thì đập đi lấy lại đá. Cô gái dũng cảm và chăm chỉ thì có khi thức làm đêm.
+
+## Làm thân với cô ấy
+
+Mỗi người chơi có một **độ thân** riêng với cô ấy, từ -100 tới 100. Độ thân tăng chậm:
+
+- **Ở gần nhau** mỗi phút tăng một chút, nhưng chỉ tới khoảng 30. Muốn thân hơn, bạn phải làm gì đó.
+- **Tặng quà** (cầm đồ chuột phải vào cô ấy, hoặc ném cho cô ấy): đồ càng quý càng có giá trị. **Cho ăn** khi cô ấy đói,
+  **tặng hoa**, **khen**, **trò chuyện** cũng làm độ thân tăng. Những thứ này bị giới hạn khoảng 10 điểm mỗi ngày trong
+  game, nên không thể mua chuộc cô ấy trong một buổi.
+- **Cứu cô ấy** (giết con quái đang đánh cô ấy) và **đặt tên** cho cô ấy thì không bị giới hạn.
+- Đánh cô ấy thì -15, mắng cô ấy thì -4.
+
+| Độ thân | Cô ấy là | Cô ấy làm gì |
+|---|---|---|
+| < 15 | người lạ | ngại, ít trả lời ("...", "Mugyu~"), không nhận lời nhờ |
+| 15–40 | người quen | trả lời câu hỏi; hỏi **"cậu đang ở đâu?"** thì cô ấy đọc toạ độ và **đứng đợi bạn** ở đó |
+| 40–70 | bạn bè | nhận lời nhờ: đi theo, về nhà, đợi ở đây, chặt cây, đào đá, đi săn |
+| ≥ 70 | bạn thân | xưng "tớ – cậu", cúi chào khi gặp, thỉnh thoảng bắt chuyện, cho mở túi đồ (Shift + chuột phải) |
+| < -30 | ghét bạn | tránh xa bạn, không nghe lời, bị đánh thì đánh lại |
+
+`/lymeowz info` cho biết độ thân hiện tại của bạn.
+
+### "Cậu đang ở đâu?"
+
+Hỏi *"tọa độ nào vậy"*, *"cậu đang ở đâu?"* hay *"where are you"* thì cô ấy trả lời toạ độ. Nếu đã quen bạn
+(độ thân ≥ 15), cô ấy nghe thấy câu hỏi ở bất cứ khoảng cách nào và **ở yên chỗ đó đợi bạn** 10 phút (bạn bè thì 20 phút).
+Trời tối thì cô ấy đốt lửa trại. Có quái thì cô ấy xây hộp đá quanh mình để trú. Khi bạn tới gần thì cô ấy dỡ hộp ra.
+
+```
+<bạn> tọa độ của cậu là gì?
+<Cô gái lạ> Mình đang ở 184 -60 210. Ừm, mình sẽ ở yên đây đợi LyTester nè~
+```
 
 ## Tâm trí
 
 | | |
 |---|---|
-| **Tính cách** | 9 trọng số cố định: dũng cảm, chăm chỉ, tò mò, thích gần người, hiền, thích xây, thích đánh, nói nhiều, vui vẻ. Thêm một **lý tưởng** (bạn bè, phiêu lưu, tổ ấm, bảo vệ, làm việc). Các trọng số sinh từ UUID nên mỗi cô một khác. |
-| **Nhu cầu và cảm xúc** | Đói, sợ, vui, chán, tò mò, năng lượng, giao tiếp. Chúng thay đổi theo thời gian và theo sự kiện: được tặng quà, bị đánh, bị quái cắn, trời tối, chủ về, hạ được quái… |
-| **Ra quyết định (Utility AI)** | Mỗi giây cô ấy chấm điểm mọi việc có thể làm theo *nhu cầu × tính cách × kinh nghiệm*, rồi chọn việc điểm cao nhất. Ví dụ: đói thì ăn hoặc đi săn, chán hay tò mò thì đi khám phá, mệt hay sợ thì nghỉ cạnh bạn, cô đơn thì lại gần nói chuyện, thích xây thì trồng cây hoặc cắm đuốc ban đêm. Nhút nhát mà gặp quái lúc yếu thì chạy trốn. Việc khẩn cấp (đói lả, gặp nguy) được ngắt ngang việc đang làm. |
-| **Trí nhớ** | Nhớ nhà, rừng, bãi đá, quặng, đàn thú, hồ nước, chỗ ngắm cảnh, **chỗ từng gặp nguy hiểm** (và tránh khi đi khám phá), **người chơi nào tốt hay xấu** với cô ấy, và một nhật ký 40 chuyện gần nhất. |
-| **Học đơn giản** | Ghi lại mỗi việc ở mỗi vùng 64×64 thành công hay thất bại. Lần sau, việc hay thất bại ở vùng đó được chấm điểm thấp hơn. Kinh nghiệm cũ phai dần để còn thử lại. |
-| **Nói chuyện** | Mỗi câu được ghép từ ý muốn nói (việc đang làm và lý do, chuyện đã nhớ, nơi đã thấy, cảm xúc) cùng cách nói theo tâm trạng, tính cách và độ thân thiết. Không có danh sách câu trả lời viết sẵn, và không cần mạng. |
+| **Tính cách** | 9 trọng số cố định: dũng cảm, chăm chỉ, tò mò, thích gần người, hiền, thích xây, thích đánh, nói nhiều, vui vẻ, cùng một **lý tưởng**. Các trọng số sinh từ UUID nên mỗi cô một khác. |
+| **Nhu cầu và cảm xúc** | Đói, sợ, vui, chán, tò mò, năng lượng, giao tiếp. Chúng thay đổi theo thời gian và theo sự kiện. |
+| **Ra quyết định (Utility AI)** | Cô ấy chấm điểm mọi việc có thể làm theo *nhu cầu × tính cách × kinh nghiệm × giai đoạn trong lộ trình*, rồi chọn việc điểm cao nhất. Việc khẩn cấp (đói lả, gặp nguy) được ngắt ngang việc đang làm. |
+| **Trí nhớ** | Nhớ nhà, rừng, bãi đá, quặng, đàn thú, hồ nước, chỗ từng gặp nguy hiểm, các công trình đã xây, người chơi nào tốt hay xấu với cô ấy, và một nhật ký 40 chuyện gần nhất. |
+| **Học đơn giản** | Ghi lại mỗi việc ở mỗi vùng thành công hay thất bại, lần sau chọn khác. |
+| **Nói chuyện** | Mỗi câu được ghép từ ý muốn nói cùng tâm trạng, tính cách và độ thân. Không có câu viết sẵn, không cần mạng. Cô ấy **ít nói**: không tự kể việc mình làm, chủ yếu trả lời khi được hỏi. |
 
-Dữ liệu này nằm trong `<thế giới>/data/lymeowz.json`.
+Dữ liệu nằm trong `<thế giới>/data/lymeowz.json`. Dữ liệu của bản 2.x không dùng lại được, cô ấy sẽ bắt đầu lại từ đầu.
 
 ## Nói chuyện với cô ấy
 
-Bạn cứ chat bình thường. Cô ấy nghe thấy trong phạm vi 32 block, hoặc khi bạn gọi tên (*Ly*, *LyMeowz*).
+Chat bình thường. Cô ấy nghe thấy trong khoảng 24 block, hoặc ở bất cứ đâu nếu bạn gọi đúng tên đã đặt cho cô ấy.
 
-**Ra lệnh:** `đi theo`, `đứng yên`, `về nhà`, `lại đây`, `đây là nhà`, `chặt cây`, `đào đá`, `đi săn`, `làm việc đi`,
-`đưa đồ`.
+**Hỏi:** *đói không, đang làm gì, trong túi có gì, nhà ở đâu, mỏ / rừng / đàn thú ở đâu, kế hoạch là gì, có giàu không,
+hôm nay làm được gì, kể chuyện đi, thích mình không…*
 
-**Hỏi chuyện.** Cô ấy trả lời từ trạng thái và trí nhớ thật của mình. Các câu dưới đây lấy từ log server thật:
+**Nhờ (bạn bè):** *đi theo mình, lại đây, đợi ở đây, về nhà, tự do đi, chặt cây, đào đá, đi săn, đưa đồ.*
+
+Một đoạn trong log server thật:
 
 ```
-<bạn> cậu đói không?        <LyMeowz> Mình đói đói một chút (12/20) nha~
-<bạn> cậu đang làm gì vậy?   <LyMeowz> Mình đang nhóm lò nướng đồ nè~
-<bạn> mỏ đá ở đâu?           <LyMeowz> Mình nhớ có chỗ đào đá được ở phía tây, cách đây chừng 25 bước~
-<bạn> cậu thích gì?          <LyMeowz> Mình là đứa hơi nhút nhát, hiền, chăm làm. Điều mình muốn nhất là ở bên bạn bè nè~
-<bạn> cậu dễ thương quá      <LyMeowz> M-Mugyu~! Mặt mình nóng hết lên rồi!
+<LyTester> cậu đói không?          <Cô gái lạ> Ơ...                       (lúc còn là người lạ)
+<LyTester> cậu dễ thương quá       <Cô gái lạ> M-Mugyu~! Mặt mình nóng hết lên rồi!
+<LyTester> theo mình nào           <Cô gái lạ> Okie, mình đi theo cậu đó~   (khi đã là bạn bè)
+<LyTester> kế hoạch của cậu là gì?
+<Cô gái lạ> Giờ mình đang ở bước "dựng nhà": gom đá với gỗ để xây một căn nhà nhỏ có cửa, đuốc, rương. Xong thì tới làm ruộng, rồi làm chuồng. (bước 3/10)
 ```
 
-Cô ấy cũng tự nói ra việc mình làm, kèm lý do, và kể những gì vừa thấy:
-*"Hihi, mình định đi săn, sắp hết đồ ăn rồi nè~"* · *"A ha, phía tây bắc có nhiều cây lắm cách đây chừng 15 bước,
-lần sau mình qua đó lấy gỗ đó~"*
+## Skin
 
-Bạn khen hay chê, tặng quà hay đánh cô ấy đều làm thay đổi **độ thân thiết**. Cô ấy xưng hô khác đi theo độ thân thiết
-(tớ/mình/tôi, cậu/bạn). Nếu bị đối xử tệ quá, cô ấy có thể **không nghe lời**.
-
-> **Giới hạn:** không có mô hình ngôn ngữ thì cô ấy không hiểu được mọi câu tùy ý. Với câu lạ, cô ấy sẽ "Mugyu~?".
-> Nếu muốn trò chuyện tự do hơn, bạn có thể bật LLM (Ollama, OpenAI…) trong config.
+Cô ấy dùng skin riêng (`textures/entity/lymeowz.png`, kiểu tay mảnh) qua `AvatarRenderState.skin`, nên các mod
+skin như *3D Skin Layers*, *EMF/ETF* cũng nhận ra. Giáp cô ấy mặc cũng hiện lên người.
 
 ## Lệnh
 
 ```
-/lymeowz summon | follow | stay | home | sethome | info | inv | give | dismiss
-/lymeowz say <câu>             nói với cô ấy từ bất cứ đâu
-/lymeowz reload                (OP) tải lại config
-/lymeowz selftest              (OP) tự kiểm tra: dịch chuyển, chunk, đổi chiều không gian, ngất...
-/lymeowz selftest survival     (OP) dựng khu thử và tua nhanh 20 phút để xem cô ấy sinh tồn
+/lymeowz info                    cô ấy đang làm gì, độ thân của bạn với cô ấy
+/lymeowz say <câu>               nói với cô ấy (như chat)
+/lymeowz summon                  (OP) tạo cô ấy nếu thế giới chưa có, hoặc đưa cô ấy tới gần bạn
+/lymeowz inv                     (OP) mở túi đồ của cô ấy
+/lymeowz friendship <-100..100>  (OP) đặt độ thân (để thử)
+/lymeowz dismiss                 (OP) xoá cô ấy khỏi thế giới
+/lymeowz reload                  (OP) tải lại config
+/lymeowz selftest [survival]     (OP) tự kiểm tra / dựng khu thử và tua nhanh 60 phút xem cô ấy sinh tồn
 ```
 
 ## Cài đặt
 
 Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.4 trở lên,
-[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-2.0.0+26.3.jar` vào thư mục `mods/`.
-
-Từ bản 2.0, mod chỉ hỗ trợ Minecraft 26.3. Các bản cho 1.21.x–26.2 vẫn còn trong lịch sử git (bản 1.1.0)
-nhưng không được phát triển tiếp.
+[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-3.0.0+26.3.jar` vào thư mục `mods/`.
 
 ## Cấu hình: `config/lymeowz.json`
 
-`followRadius` (100), `workRadius` (24), `protectRadius` (16), `teleportDistance` (128), `chunkLoadRadius`,
-`autoSpawnOnFirstJoin`, `idleChatter`, `goHomeWhenOwnerSleeps`, `hearingDistance`, `llm {...}`.
+| Khoá | Mặc định | |
+|---|---|---|
+| `stayNearPlayer` | 30 | cô ấy thường ở trong khoảng này quanh người chơi gần nhất |
+| `noticePlayerRange` | 96 | xa hơn khoảng này thì cô ấy sống ở nhà mình |
+| `homeWorkRadius` | 48 | bán kính làm việc quanh nhà khi ở một mình |
+| `teleportDistance` | 160 | đang được nhờ đi theo mà bạn ở xa hơn (hoặc khác chiều không gian) thì cô ấy dịch chuyển tới |
+| `protectRadius` | 12 | không chặt, đào, săn quanh giường của người chơi |
+| `chunkLoadRadius` | 2 | chunk cô ấy tự giữ quanh mình |
+| `spawnOnFirstJoin` | true | tạo cô ấy khi có người chơi vào lần đầu |
+| `idleChatter` | true | bạn thân thỉnh thoảng được bắt chuyện |
+| `hearingDistance` | 24 | khoảng nghe thấy chat |
+| `waitMinutes` | 10 | thời gian đứng đợi khi được hỏi toạ độ |
+| `llm {...}` | tắt | nối mô hình ngôn ngữ (Ollama, OpenAI…) cho người quen trở lên |
 
 ## Build
 
 ```bash
-./gradlew build        # cần Java 25 → build/libs/lymeowzai-2.0.0+26.3.jar
+./gradlew build        # cần Java 25 → build/libs/lymeowzai-3.0.0+26.3.jar
 ```
 
 ## Mã nguồn
 
 ```
-entity/LyMeowzEntity     thân thể: đi theo, về nhà, dịch chuyển, túi đồ, đói, tương tác
-mind/Mind                nhu cầu & cảm xúc, sự kiện, nhìn & nhớ nơi chốn, quan hệ, học
-mind/Decider             Utility AI chọn việc
-mind/Personality         tính cách + lý tưởng
-speech/Speech            ghép câu theo ý nghĩa + cảm xúc + xưng hô
-speech/Understanding     hiểu câu hỏi, khen/chê; trả lời từ trạng thái và trí nhớ
-survival/                túi đồ, đào block, chế tạo, các việc (chặt, đào, săn, nung, ăn, khám phá, trồng cây...)
-world/                   lưu dữ liệu, tìm lại cô ấy khi vào game, giữ chunk
+entity/LyMeowzEntity     thân thể: sống độc lập, đêm ngủ / cắm trại, yêu cầu (đi theo, đợi, về nhà), tự vệ, túi đồ, tên
+mind/                    cảm xúc, trí nhớ, độ thân, học; Decider = Utility AI theo lộ trình
+speech/                  ghép câu, hiểu câu hỏi
+chat/Brain               nghe chat, phân quyền theo độ thân
+survival/Roadmap         lộ trình sinh tồn
+survival/BlockBreaker    phá block như người chơi (tầm với + tầm nhìn)
+survival/Builder, Camp   đặt block, cắm trại / hộp trú
+survival/task/           chặt cây, đào đá, đào mỏ cầu thang, săn, nung, chế, xây nhà, ruộng, chuồng, giường, rương, thư giãn...
+world/                   lưu dữ liệu, giữ cô ấy luôn có mặt trong thế giới
 ```
 
 MIT License · KhanhLyNek
