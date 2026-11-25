@@ -60,7 +60,7 @@ public class BlueprintTask extends Task {
     private final Map<BlockPos, Integer> deferred = new HashMap<>();
     private final Set<BlockPos> plan = new HashSet<>();
     private final Map<Materials.Mat, Float> missing = new EnumMap<>(Materials.Mat.class);
-    private int placed, cooldown, reachTicks, walkFails, unpaid, climbTries;
+    private int placed, cooldown, reachTicks, walkFails, unpaid, climbTries, brkFails;
     // Cột kê để leo lên chỗ cao.
     private final List<BlockPos> pillar = new ArrayList<>();
     private boolean climbing, descending;
@@ -134,9 +134,21 @@ public class BlueprintTask extends Task {
     @Override
     protected boolean run(ServerLevel level) {
         if (breaker.target() != null) {
+            BlockPos t = breaker.target();
             BlockBreaker.Result r = breaker.tick(ly, level);
             if (r == BlockBreaker.Result.WORKING) return true;
             breaker.cancel(level, ly);
+            if (r == BlockBreaker.Result.DONE) { brkFails = 0; return true; }
+            // Không với tới / bị khối khác che: đổi chỗ đứng thử lại; mãi không được thì để khối đó sau.
+            if (++brkFails > 6) {
+                brkFails = 0;
+                clear.remove(t);
+                if (!queue.isEmpty() && world(queue.peekFirst().pos()).equals(t) && !defer(queue.peekFirst())) queue.pollFirst();
+            } else if (brkFails % 2 == 0) {
+                BlockPos to = t.offset(ly.getRandom().nextIntBetweenInclusive(-3, 3), 0, ly.getRandom().nextIntBetweenInclusive(-3, 3));
+                ly.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, 1.0);
+                cooldown = 30;
+            }
             return true;
         }
         if (descending) return descend(level);
