@@ -108,6 +108,8 @@ public class LyMeowzEntity extends LyMeowzBase {
     private int stuckCount;
     private boolean nameSynced;
     private boolean dismantling;
+    private boolean campRestored;
+    private int wakeToEat;
     private int greetTicks;
     private final Map<UUID, Long> lastNear = new HashMap<>();
     private long nextChatter;
@@ -195,6 +197,28 @@ public class LyMeowzEntity extends LyMeowzBase {
     @Nullable
     public BlockPos getHomePos() {
         return structurePos(data() == null ? null : data().home);
+    }
+
+    /** Bàn chế tạo mình đặt đang để ngoài (cùng chiều không gian), hoặc null. */
+    @Nullable
+    public BlockPos workTable() {
+        CompanionStore.Data d = data();
+        return d == null ? null : structurePos(d.workTable);
+    }
+
+    public void setWorkTable(@Nullable BlockPos p) {
+        CompanionStore.Data d = data();
+        if (d == null) return;
+        d.workTable = p == null || !(level() instanceof ServerLevel sl) ? null
+                : new CompanionStore.Spot(Compat.dimId(sl.dimension()), p.getX(), p.getY(), p.getZ());
+        CompanionStore.markDirty();
+    }
+
+    /** Chỗ đứng trong nhà đã xây xong (nhà theo bản vẽ hoặc nhà cũ), hoặc null nếu chưa có nhà thật. */
+    @Nullable
+    public BlockPos builtHomeInside() {
+        if (structure("home") == null && structure("house") == null) return null;
+        return getHomePos();
     }
 
     /** Vị trí một công trình của cô ấy ("house", "farm", "pen", "chest", "bed") nếu ở cùng chiều không gian. */
@@ -427,8 +451,16 @@ public class LyMeowzEntity extends LyMeowzBase {
         if (greetTicks > 0) tickGreet();
         else tickExpression(level);
 
+        if (tickCount % 10 == 0 && !isSleeping() && isInWall()) escapeWall(level);
         if (isSleeping()) { tickSleeping(level); return; }
         if (greetTicks == 0 && exprTicks == 0) manner.tick(level);
+        if (!campRestored) {
+            campRestored = true;
+            if (camp.restore(this, level)) {
+                if (Compat.isNight(level)) { nightCamp = true; camp.reset(blockPosition()); }
+                else dismantling = true;
+            }
+        }
         if (dismantling) {
             survival.tickMaintenance(level);
             if (!camp.dismantle(this, level)) { dismantling = false; nightCamp = false; }
@@ -556,6 +588,12 @@ public class LyMeowzEntity extends LyMeowzBase {
             if (nightCamp) { nightCamp = false; if (camp.enclosed()) dismantling = true; }
             return false;
         }
+        // Bản năng sinh tồn: đói lả mà không còn gì ăn thì phải đi kiếm ăn, đêm cũng vậy (ngủ đói là mất máu).
+        if (getHunger() <= 6 && inventoryWithHand().count(s -> Tools.edible(s, 4)) == 0
+                && (structure("chest") == null || !com.khanhly.lymeowz.survival.task.StoreTask.hasFood(level, structure("chest")))) {
+            if (nightCamp) { nightCamp = false; if (camp.enclosed()) dismantling = true; }
+            return false;
+        }
         // Cú đêm có giáp + kiếm thì làm đêm (thường là đào mỏ).
         if (nightOwl() && Survival.bestTier(inventoryWithHand(), Tools.Kind.SWORD) >= 2 && getHealth() > 12) return false;
         BlockPos bed = structure("bed");
@@ -566,6 +604,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         }
         if (bed != null && bed.distSqr(blockPosition()) < 128 * 128) {
             if (getTarget() != null && getTarget().isAlive()) return false; // đánh xong đã
+            if (tickCount < wakeToEat) { survival.tickMaintenance(level); return true; }
             survival.interrupt(level);
             double d = Vec3.atBottomCenterOf(bed).distanceTo(position());
             if (d > 2.0) { travelTo(level, bed, d); return true; }
@@ -573,9 +612,25 @@ public class LyMeowzEntity extends LyMeowzBase {
             startSleeping(bed);
             return true;
         }
+        // Có nhà rồi (dù chưa có giường): tối thì về nhà, đóng cửa ở trong, không đắp hộp đất ngoài đồng nữa.
+        BlockPos inside = builtHomeInside();
+        if (inside != null && inside.distSqr(blockPosition()) < 160 * 160) {
+            if (getTarget() != null && getTarget().isAlive()) return false;
+            if (nightCamp) { nightCamp = false; if (camp.enclosed()) dismantling = true; }
+            survival.interrupt(level);
+            double d = Vec3.atBottomCenterOf(inside).distanceTo(position());
+            if (d > 2.5) { travelTo(level, inside, d); return true; }
+            getNavigation().stop();
+            survival.tickMaintenance(level);
+            return true;
+        }
         // Không có giường: có bạn ở gần thì thức cùng bạn; không thì cắm trại tại chỗ.
         ServerPlayer p = nearestPlayer(level, 12);
-        if (p != null && affinity(p) >= FRIEND) return false;
+        if (p != null && affinity(p) >= FRIEND) {
+            // Thức cùng bạn: có hộp trú thì dỡ ra trước rồi mới đi theo, không bỏ hộp lại.
+            if (nightCamp) { nightCamp = false; if (camp.enclosed()) dismantling = true; }
+            return false;
+        }
         if (!nightCamp) { nightCamp = true; survival.interrupt(level); camp.reset(blockPosition()); }
         survival.tickMaintenance(level);
         getNavigation().stop();
@@ -588,6 +643,8 @@ public class LyMeowzEntity extends LyMeowzBase {
         boolean night = Compat.isNight(level);
         boolean threat = getTarget() != null && getTarget().isAlive() && getTarget().distanceToSqr(this) < 16;
         if (!night || threat || getHealth() < 6) { stopSleeping(); return; }
+        // Đói cồn cào giữa đêm: dậy ăn (hoặc đi kiếm ăn) rồi mới ngủ tiếp.
+        if (getHunger() <= 6) { stopSleeping(); wakeToEat = tickCount + 20 * 8; return; }
         if (tickCount % 20 == 0) {
             MindData m = mind().data();
             m.energy = Math.min(100, m.energy + 1.5f);
@@ -751,6 +808,23 @@ public class LyMeowzEntity extends LyMeowzBase {
         lastStuckCheck = now;
         if (stuckCount >= 4) { stuckCount = 0; return true; }
         return false;
+    }
+
+    /** Bị kẹt trong khối (ngạt thở): đào khối đè lên đầu như người chơi; khối của người khác thì nhảy ra chỗ trống. */
+    private void escapeWall(ServerLevel level) {
+        BlockPos eye = BlockPos.containing(getEyePosition());
+        var st = level.getBlockState(eye);
+        boolean mine = st.getDestroySpeed(level, eye) >= 0 && st.getDestroySpeed(level, eye) < 5 && !st.hasBlockEntity()
+                && (!isProtected(eye) || ownsBlock(eye));
+        if (mine) {
+            swingArm();
+            level.destroyBlock(eye, true, this);
+        } else {
+            getNavigation().stop();
+            teleportNear(level, blockPosition(), 1, 4);
+        }
+        if (com.khanhly.lymeowz.command.SurvivalTest.running())
+            com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     (kẹt trong khối {} ở {}, {})", st.getBlock(), eye.toShortString(), mine ? "đào ra" : "nhảy ra");
     }
 
     /** Bị kẹt: đang ở trong chuồng thì mở cổng đi ra; không thì nhảy ra chỗ trống gần đó. */
@@ -1107,31 +1181,51 @@ public class LyMeowzEntity extends LyMeowzBase {
             if (spawn == null || !Compat.dimId(spawn.dimension()).equals(dim)) continue;
             if (spawn.pos().distSqr(p) <= (double) r * r) return true;
         }
-        CompanionStore.Data d = data();
-        if (d != null) {
-            for (var e : d.structures.entrySet()) {
-                CompanionStore.Spot s = e.getValue();
-                if (!s.dim.equals(dim)) continue;
-                double dx = s.x + 2 - p.getX(), dz = s.z + 2 - p.getZ(), dy = s.y - p.getY();
-                if (dx * dx + dz * dz <= 7 * 7 && Math.abs(dy) < 8) return true;
-            }
-        }
-        return false;
+        return inStructure(p, 3, null);
     }
 
-    /** Block này có thuộc công trình của cô ấy (nhà, ruộng, chuồng...) không. */
-    public boolean ownsBlock(BlockPos p) {
+    /** Kích thước (rộng, cao, dài) của một công trình theo khoá. */
+    private int[] structureSize(String key) {
+        CompanionStore.Data d = data();
+        String bpName = key.equals("home") && d != null ? d.homeBlueprint : key.equals("plan:home") && d != null ? d.blueprint : null;
+        if (bpName != null) {
+            var bp = com.khanhly.lymeowz.house.Blueprint.byName(bpName);
+            if (bp != null) return new int[]{bp.width, bp.height, bp.length};
+        }
+        return switch (key) {
+            case "pen" -> new int[]{6, 4, 6};
+            case "chest", "bed", "chest2" -> new int[]{1, 1, 1};
+            case "farm" -> new int[]{5, 2, 5};
+            case "portal" -> new int[]{4, 5, 1};
+            default -> key.startsWith("deco:") ? new int[]{0, 0, 0} : new int[]{5, 5, 5};
+        };
+    }
+
+    /** Điểm {@code p} có nằm trong (hoặc sát) một công trình của cô ấy không; bỏ qua công trình đặt tại {@code except}. */
+    private boolean inStructure(BlockPos p, int margin, @Nullable BlockPos except) {
         CompanionStore.Data d = data();
         if (d == null) return false;
         String dim = Compat.dimId(level().dimension());
         for (var e : d.structures.entrySet()) {
             CompanionStore.Spot s = e.getValue();
-            if (!s.dim.equals(dim) || e.getKey().startsWith("plan:")) continue;
-            int size = e.getKey().equals("pen") ? 6 : 5;
-            if (p.getX() >= s.x - 1 && p.getX() <= s.x + size && p.getZ() >= s.z - 1 && p.getZ() <= s.z + size
-                    && p.getY() >= s.y - 1 && p.getY() <= s.y + 4) return true;
+            if (!s.dim.equals(dim)) continue;
+            if (except != null && s.x == except.getX() && s.y == except.getY() && s.z == except.getZ()) continue;
+            int[] size = structureSize(e.getKey());
+            if (size[0] == 0) continue;
+            if (p.getX() >= s.x - margin && p.getX() < s.x + size[0] + margin && p.getZ() >= s.z - margin && p.getZ() < s.z + size[2] + margin
+                    && p.getY() >= s.y - margin && p.getY() < s.y + size[1] + margin) return true;
         }
         return false;
+    }
+
+    /** Như {@link #ownsBlock} nhưng bỏ qua công trình đặt tại {@code origin} (nhà đang xây). */
+    public boolean ownsBlockOtherThan(BlockPos p, BlockPos origin) {
+        return inStructure(p, 1, origin);
+    }
+
+    /** Block này có thuộc công trình của cô ấy (nhà, ruộng, chuồng...) không. */
+    public boolean ownsBlock(BlockPos p) {
+        return inStructure(p, 1, null);
     }
 
     public void onBlockBroken(BlockState state) {

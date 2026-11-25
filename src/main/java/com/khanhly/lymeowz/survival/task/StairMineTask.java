@@ -24,7 +24,7 @@ import java.util.List;
  * xong thì đi ngược đường cũ lên mặt đất.
  */
 public class StairMineTask extends Task {
-    private enum Phase { WALK_OUT, DESCEND, TUNNEL, RETURN }
+    private enum Phase { WALK_OUT, DESCEND, TUNNEL, RETURN, ASCEND }
 
     private final int targetY;
     private final int tunnelLength;
@@ -38,7 +38,7 @@ public class StairMineTask extends Task {
     private final List<BlockPos> toClear = new ArrayList<>();
     private BlockPos moveTarget;
     private int moveTicks;
-    private int returnIdx;
+    private int returnIdx = -1;
     private int stone, ores;
     private int lastTorchStep = -100;
     private int steps;
@@ -100,8 +100,8 @@ public class StairMineTask extends Task {
             } else if (ly.getNavigation().isDone()) ly.walkTo(walkOut, 1.0);
             return true;
         }
-        if (age >= timeout - 20 * 60 && phase != Phase.RETURN) phase = Phase.RETURN; // chừa 1 phút để đi ra
-        if (phase != Phase.RETURN && (ly.inv().isFull() || !hasPickaxe() || ly.getHealth() < 7 || aborted)) phase = Phase.RETURN;
+        if (age >= timeout - 20 * 60 && phase != Phase.RETURN && phase != Phase.ASCEND) phase = Phase.RETURN; // chừa 1 phút để đi ra
+        if (phase != Phase.RETURN && phase != Phase.ASCEND && (ly.inv().isFull() || !hasPickaxe() || ly.getHealth() < 7 || aborted)) phase = Phase.RETURN;
 
         // 1) Đang phá dở một block.
         if (breaker.target() != null) {
@@ -113,20 +113,24 @@ public class StairMineTask extends Task {
         }
         // 2) Đang đi tới ô kế tiếp.
         if (moveTarget != null) {
-            if (ly.blockPosition().equals(moveTarget) || (ly.position().distanceToSqr(net.minecraft.world.phys.Vec3.atBottomCenterOf(moveTarget)) < 0.35)) {
+            var c = net.minecraft.world.phys.Vec3.atBottomCenterOf(moveTarget);
+            double hd = Math.hypot(ly.getX() - c.x, ly.getZ() - c.z), dy = Math.abs(ly.getY() - c.y);
+            if (ly.blockPosition().equals(moveTarget) || (hd < 0.6 && dy < 0.6) || (ly.getNavigation().isDone() && hd < 1.2 && dy < 1.1)) {
                 feet = moveTarget;
                 moveTarget = null;
                 stuckMoves = 0;
                 if (phase == Phase.DESCEND) descended++;
-                if (phase != Phase.RETURN) { trail.add(feet); afterStep(level); }
+                if (phase != Phase.RETURN && phase != Phase.ASCEND) { trail.add(feet); afterStep(level); }
                 return true;
             }
             if (++moveTicks > 80) { // kẹt: thử lại từ chỗ đang đứng
                 feet = ly.blockPosition();
                 moveTarget = null;
-                if (++stuckMoves > 4) {
-                    if (phase == Phase.RETURN) return false;
-                    phase = Phase.RETURN;
+                if (++stuckMoves > 3) {
+                    stuckMoves = 0;
+                    if (phase == Phase.ASCEND) return false;
+                    // Đường cũ bị kẹt: tự đào bậc thang đi thẳng lên mặt đất.
+                    phase = phase == Phase.RETURN ? Phase.ASCEND : Phase.RETURN;
                 }
                 return true;
             }
@@ -134,7 +138,7 @@ public class StairMineTask extends Task {
             return true;
         }
         // 3) Đào quặng lộ ra quanh đây trước.
-        if (phase != Phase.RETURN) {
+        if (phase != Phase.RETURN && phase != Phase.ASCEND) {
             BlockPos ore = visibleOre(level);
             if (ore != null) { breaker.start(ore); ores++; return true; }
         }
@@ -164,6 +168,7 @@ public class StairMineTask extends Task {
             case DESCEND -> planDescend(level);
             case TUNNEL -> planTunnel(level);
             case RETURN -> planReturn();
+            case ASCEND -> planAscend(level);
             case WALK_OUT -> true;
         };
     }
@@ -212,11 +217,28 @@ public class StairMineTask extends Task {
         return true;
     }
 
+    private Direction ascDir;
+
+    /** Đào bậc thang đi lên cho tới khi thấy trời (hoặc lên tới độ cao lúc bắt đầu). */
+    private boolean planAscend(ServerLevel level) {
+        if (level.canSeeSky(feet) || feet.getY() >= trail.get(0).getY()) return false;
+        if (ascDir == null) ascDir = dir.getOpposite();
+        BlockPos up = feet.relative(ascDir).above();
+        if (dangerAhead(level, up)) { ascDir = ascDir.getClockWise(); return ++steps < 600; }
+        toClear.add(feet.above(2));
+        toClear.add(up.above());
+        toClear.add(up);
+        pendingMove = up;
+        steps++;
+        return true;
+    }
+
     private boolean planReturn() {
-        // Đi ngược lại đường cũ, mỗi chặng tối đa 8 ô.
-        if (returnIdx == 0) returnIdx = trail.size() - 1;
-        if (returnIdx <= 0) return false;
-        returnIdx = Math.max(0, returnIdx - 8);
+        // Đi ngược lại đường cũ, mỗi chặng tối đa 3 ô.
+        // (lỗi cũ: về tới đầu đường thì returnIdx = 0 lại bị hiểu là "chưa bắt đầu" → quay xuống hầm lần nữa)
+        if (returnIdx < 0) returnIdx = trail.size() - 1;
+        if (returnIdx == 0) return false;
+        returnIdx = Math.max(0, returnIdx - 3);
         pendingMove = trail.get(returnIdx);
         return true;
     }

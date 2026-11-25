@@ -50,6 +50,10 @@ public class Survival {
         return current == null ? "nghỉ" : current.name();
     }
 
+    public String currentDebug() {
+        return current == null ? "" : current.debug();
+    }
+
     public String currentReason() {
         return currentReason;
     }
@@ -110,7 +114,9 @@ public class Survival {
             if (age % 20 == 0) {
                 Decider.Option urgent = decider.best(decider.evaluate(level, center, radius, focus).stream()
                         .filter(o -> o.urgent() && !o.action().equals(current.name())).toList());
-                if (urgent != null && urgent.score() > currentScore + 0.2f) {
+                boolean foodFirst = urgent != null && Decider.isFood(urgent.reason()) && ly.getHunger() <= 6
+                        && !Decider.isFood(currentReason) && !"ăn".equals(current.name());
+                if (urgent != null && (urgent.score() > currentScore + 0.2f || foodFirst)) {
                     finish(level);
                     begin(level, urgent);
                     return;
@@ -128,7 +134,26 @@ public class Survival {
         begin(level, o);
     }
 
+    /** Những việc phải đi xa khỏi chỗ đang làm: trước khi đi thì thu bàn chế tạo đã đặt. */
+    private static final Set<String> FAR = Set.of("khám phá", "tìm đất làm nhà", "dựng cổng Nether");
+
     private void begin(ServerLevel level, Decider.Option o) {
+        BlockPos wt = ly.workTable();
+        boolean far = FAR.contains(o.action());
+        if (wt != null && !far && (o.action().equals("xây nhà") || o.action().equals("trang trí nhà"))) {
+            BlockPos site = decider.currentOrigin();
+            far = site != null && !site.closerThan(wt, 40);
+        }
+        if (wt != null && far && !o.urgent()) {
+            if (wt.closerThan(ly.blockPosition(), 24)) {
+                current = new com.khanhly.lymeowz.survival.task.CraftTask.PickupTable(ly, wt);
+                currentScore = o.score();
+                currentReason = null;
+                current.start(level);
+                return; // thu bàn xong thì lần chọn việc sau sẽ đi tiếp
+            }
+            if (!wt.closerThan(ly.blockPosition(), 96)) ly.setWorkTable(null); // bàn ở tận đâu rồi, thôi coi như của thế giới
+        }
         current = o.make().get();
         currentScore = o.score();
         currentReason = o.reason();

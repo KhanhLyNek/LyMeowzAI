@@ -815,15 +815,27 @@ public class Bond {
         r.missSigns = 0;
     }
 
-    private void missSigns(ServerLevel level, long now, long d) {
+    /** Trước cửa nhà (chỗ cắm biển). */
+    private BlockPos frontOfHome() {
+        BlockPos home = ly.structure("home");
+        var d = ly.data();
+        if (home != null && d != null && d.homeBlueprint != null) {
+            var bp = com.khanhly.lymeowz.house.Blueprint.byName(d.homeBlueprint);
+            if (bp != null) return home.offset(bp.width / 2, 1, -2);
+        }
         BlockPos house = ly.structure("house");
-        if (house == null) return;
+        return house == null ? null : HouseTask.door(house).north(2);
+    }
+
+    private void missSigns(ServerLevel level, long now, long d) {
+        BlockPos front = frontOfHome();
+        if (front == null) return;
         for (MindData.Relation r : ly.mind().data().relations.values()) {
             if (r.affinity < 61 || r.left || r.seenAt < 0 || now - r.seenAt < 2 * DAY || r.missSigns >= 5) continue;
             long days = (now - r.seenAt) / DAY;
             String did = todayText();
-            BlockPos spot = HouseTask.door(house).north(2).east(r.missSigns - 2);
-            if (placeSign(level, spot.above(-1).above(), new String[]{"Ngày " + days + ":", did, "...cậu đâu rồi", ""})) r.missSigns++;
+            BlockPos spot = front.east(r.missSigns - 2);
+            if (placeSign(level, spot, new String[]{"Ngày " + days + ":", did, "...cậu đâu rồi", ""})) r.missSigns++;
             return;
         }
     }
@@ -871,14 +883,18 @@ public class Bond {
         if (r.affinity >= 0 || r.peak < 21 || r.left) return;
         r.left = true;
         ServerLevel level = (ServerLevel) ly.level();
-        BlockPos house = ly.structure("house");
-        if (house != null) {
-            placeSign(level, HouseTask.door(house).north(1), new String[]{"Tớ đi đây.", "Đừng tìm tớ...", "", ""});
+        BlockPos front = frontOfHome();
+        if (front != null) {
+            placeSign(level, front, new String[]{"Tớ đi đây.", "Đừng tìm tớ...", "", ""});
             CompanionStore.Data d = ly.data();
             if (d != null) {
-                for (String k : new String[]{"house", "farm", "pen", "bed", "chest", "plan:house", "plan:pen"}) d.structures.remove(k);
+                for (String k : new String[]{"house", "home", "farm", "pen", "bed", "chest", "plan:house", "plan:pen", "plan:home"}) d.structures.remove(k);
                 d.home = null;
                 d.bed = null;
+                d.blueprint = null;
+                d.blueprintAt = null;
+                d.homeBlueprint = null;
+                d.builtHouses.clear();
                 CompanionStore.markDirty();
             }
         }

@@ -25,6 +25,9 @@ public class Camp {
     private final BlockBreaker breaker = new BlockBreaker();
     private boolean lit;
     private int cooldown;
+    private BlockPos walkingTo;
+    private int centerTries;
+    private int walkTicks;
 
     public BlockPos center() { return center; }
 
@@ -60,14 +63,24 @@ public class Camp {
         List<BlockPos> walls = new ArrayList<>();
         for (Direction d : Direction.Plane.HORIZONTAL) { walls.add(feet.relative(d)); walls.add(feet.relative(d).above()); }
         walls.add(feet.above(2));
+        // Đứng vào giữa ô trước đã (đứng lệch thì khối xây lên sẽ đè vào người).
+        if (Math.abs(ly.getX() - (feet.getX() + 0.5)) > 0.2 || Math.abs(ly.getZ() - (feet.getZ() + 0.5)) > 0.2) {
+            if (++centerTries > 3) ly.setPos(feet.getX() + 0.5, ly.getY(), feet.getZ() + 0.5);
+            else ly.getNavigation().moveTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0.6);
+            cooldown = 4;
+            return;
+        }
+        centerTries = 0;
         for (BlockPos w : walls) {
             BlockState st = level.getBlockState(w);
             if (!st.canBeReplaced()) continue;
+            if (ly.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(w))) continue;
             ItemStack b = ly.inv().takeOne(HouseTask.FILL);
             if (b.isEmpty() || !(b.getItem() instanceof BlockItem bi)) return;
             ly.getNavigation().stop();
             ly.placeBlock(level, w, bi.getBlock().defaultBlockState());
             placed.add(w.immutable());
+            save(ly, level);
             cooldown = 3;
             return;
         }
@@ -81,12 +94,44 @@ public class Camp {
             breaker.cancel(level, ly);
         }
         while (!placed.isEmpty()) {
-            BlockPos p = placed.remove(placed.size() - 1);
-            if (level.getBlockState(p).isAir() || !BlockBreaker.inReach(ly, p)) continue;
+            BlockPos p = placed.get(placed.size() - 1);
+            BlockState st = level.getBlockState(p);
+            if (st.isAir() || st.canBeReplaced() || st.hasBlockEntity() || !level.isLoaded(p)) { placed.remove(placed.size() - 1); walkingTo = null; save(ly, level); continue; }
+            if (!BlockBreaker.inReach(ly, p)) {
+                // Đã đi xa khỏi hộp (bị đẩy, đi đánh quái...): quay lại chỗ đó mà dỡ, đừng bỏ lại cái hộp đất giữa đồng.
+                if (!p.equals(walkingTo)) { walkingTo = p; walkTicks = 0; }
+                if (++walkTicks > 20 * 30) { placed.remove(placed.size() - 1); walkingTo = null; save(ly, level); continue; }
+                if (ly.getNavigation().isDone() || walkTicks % 40 == 0) ly.getNavigation().moveTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5, 1.0);
+                return true;
+            }
+            ly.getNavigation().stop();
+            placed.remove(placed.size() - 1);
+            walkingTo = null;
+            save(ly, level);
             breaker.start(p);
             return true;
         }
         return false;
+    }
+
+    /** Ghi lại hộp trú vào dữ liệu lưu. */
+    private void save(LyMeowzEntity ly, ServerLevel level) {
+        var d = ly.data();
+        if (d == null) return;
+        String dim = com.khanhly.lymeowz.compat.Compat.dimId(level.dimension());
+        d.campBlocks.clear();
+        for (BlockPos p : placed) d.campBlocks.add(new com.khanhly.lymeowz.world.CompanionStore.Spot(dim, p.getX(), p.getY(), p.getZ()));
+        com.khanhly.lymeowz.world.CompanionStore.markDirty();
+    }
+
+    /** Sau khi server khởi động lại: nhớ lại hộp trú còn dựng dở. @return true nếu có hộp cần dỡ. */
+    public boolean restore(LyMeowzEntity ly, ServerLevel level) {
+        var d = ly.data();
+        if (d == null || d.campBlocks.isEmpty()) return false;
+        String dim = com.khanhly.lymeowz.compat.Compat.dimId(level.dimension());
+        placed.clear();
+        for (var s : d.campBlocks) if (dim.equals(s.dim)) placed.add(new BlockPos(s.x, s.y, s.z));
+        return !placed.isEmpty();
     }
 
     public void cancel(LyMeowzEntity ly, ServerLevel level) {

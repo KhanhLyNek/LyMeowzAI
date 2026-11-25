@@ -16,6 +16,9 @@ public abstract class Task {
 
     public abstract String name();
 
+    /** Trạng thái chi tiết (để gỡ lỗi khi chạy thử). */
+    public String debug() { return ""; }
+
     public int ageTicks() {
         return age;
     }

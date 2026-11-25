@@ -67,6 +67,19 @@ public final class CompanionStore {
         @Nullable public MindData mind;
         /** Những thứ cô ấy đã xây (nhà, ruộng, chuồng, rương...) – để quay lại dùng. */
         public Map<String, Spot> structures = new HashMap<>();
+        /** Nhà theo bản vẽ đang xây: tên bản vẽ + góc đặt (null = chưa chọn chỗ). */
+        @Nullable public String blueprint;
+        @Nullable public Spot blueprintAt;
+        /** Bản vẽ của nhà đang ở. */
+        @Nullable public String homeBlueprint;
+        /** Các bản vẽ đã xây xong. */
+        public List<String> builtHouses = new ArrayList<>();
+        /** Những vùng đã đi tìm đất mà không ưng (để lần sau đi hướng khác). */
+        public List<Spot> rejectedSites = new ArrayList<>();
+        /** Các khối của hộp trú đêm đang dựng (để sáng ra / khởi động lại vẫn nhớ mà dỡ). */
+        public List<Spot> campBlocks = new ArrayList<>();
+        /** Bàn chế tạo cô ấy tự đặt ở chỗ đang làm việc (giữ lại dùng tiếp, đi xa mới thu về). */
+        @Nullable public Spot workTable;
         /** Giai đoạn trong lộ trình sinh tồn, và từ lúc nào (game time). */
         public int stage = -1;
         public long stageSince;
@@ -105,6 +118,9 @@ public final class CompanionStore {
             if (d.history == null) d.history = new ArrayList<>();
             if (d.structures == null) d.structures = new HashMap<>();
             if (d.skipped == null) d.skipped = new HashSet<>();
+            if (d.builtHouses == null) d.builtHouses = new ArrayList<>();
+            if (d.rejectedSites == null) d.rejectedSites = new ArrayList<>();
+            if (d.campBlocks == null) d.campBlocks = new ArrayList<>();
         }
         dirty = false;
     }

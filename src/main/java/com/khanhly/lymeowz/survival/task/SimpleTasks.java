@@ -37,8 +37,12 @@ public final class SimpleTasks {
             // Nghỉ kiểu người chơi: lững thững đi vài bước, đứng ngó (ánh nhìn do Mannerisms lo).
             ServerPlayer o = ly.focusPlayer();
             boolean friend = o != null && o.level() == level && ly.affinity(o) >= LyMeowzEntity.FRIEND;
+            net.minecraft.core.BlockPos home = ly.builtHomeInside();
             if (friend && o.distanceTo(ly) > 7 && ly.getNavigation().isDone()) {
                 ly.getNavigation().moveTo(o, 0.9);
+            } else if (!friend && home != null && home.distSqr(ly.blockPosition()) > 12 * 12 && home.distSqr(ly.blockPosition()) < 96 * 96) {
+                // Rảnh mà không có ai: về nhà nghỉ cho thoải mái.
+                if (ly.getNavigation().isDone() || age % 60 == 0) ly.getNavigation().moveTo(home.getX() + 0.5, home.getY(), home.getZ() + 0.5, 0.9);
             } else if (o != null && !friend && o.level() == level && o.distanceTo(ly) < 4 && ly.getNavigation().isDone()) {
                 // Người lạ đứng sát quá: lùi ra một chút.
                 var away = ly.position().subtract(o.position()).normalize().scale(4).add(ly.position());

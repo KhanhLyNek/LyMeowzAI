@@ -82,6 +82,15 @@ public final class SelfTest {
             Compat.isNight(ow);
             c.check("điểm hồi sinh thế giới", Compat.worldSpawn(ow) != null, String.valueOf(Compat.worldSpawn(ow)));
         }));
+        steps.add(new Step(0, "bản vẽ nhà", c -> {
+            var all = com.khanhly.lymeowz.house.Blueprint.all();
+            c.check("đọc được bản vẽ .schem", all.size() >= 2, all.stream().map(b -> b.name + " " + b.width + "x" + b.height + "x" + b.length).toList().toString());
+            for (var bp : all) {
+                var need = com.khanhly.lymeowz.survival.task.BlueprintTask.need(ow, bp, new BlockPos(0, ow.getMaxY() - bp.height - 2, 0), true);
+                c.check("giá nhà " + bp.name, !need.isEmpty() && need.getOrDefault(com.khanhly.lymeowz.house.Materials.Mat.WOOD, 0f) > 0,
+                        need.toString() + " | giường " + bp.bedHead + " rương " + bp.chest + " trong nhà " + bp.inside);
+            }
+        }));
         steps.add(new Step(0, "tạo LyMeowz", c -> {
             BlockPos spawn = Compat.worldSpawn(ow);
             c.home = new BlockPos(spawn.getX(), ow.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, spawn.getX(), spawn.getZ()), spawn.getZ());

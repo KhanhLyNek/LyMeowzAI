@@ -15,6 +15,7 @@ public class ExploreTask extends Task {
     private final BlockPos target;
     private final int placesBefore;
     private int stuck;
+    private double lastDist = 1e9;
 
     public ExploreTask(LyMeowzEntity ly, BlockPos target) {
         super(ly);
@@ -36,13 +37,18 @@ public class ExploreTask extends Task {
     @Override
     protected boolean run(ServerLevel level) {
         if (ly.blockPosition().closerThan(target, 4)) return false;
-        if (ly.getNavigation().isDone()) {
-            if (++stuck > 4) return false;
-            // Đi từng chặng ~20 block về phía điểm đến.
+        if (ly.getNavigation().isDone() && age % 10 == 0) {
+            double dist = Math.sqrt(ly.blockPosition().distSqr(target));
+            if (dist < lastDist - 2) stuck = 0; else stuck++;
+            lastDist = dist;
+            if (stuck > 6) return false;
+            // Đi từng chặng ~20 block về phía điểm đến; không tìm được đường thì chặng ngắn hơn, lệch sang một bên.
             var dir = net.minecraft.world.phys.Vec3.atBottomCenterOf(target).subtract(ly.position());
-            var hop = ly.position().add(dir.normalize().scale(Math.min(20, dir.length())));
+            if (stuck > 1) dir = dir.yRot((float) ((ly.getRandom().nextFloat() - 0.5f) * Math.PI * 0.8));
+            double len = stuck == 0 ? 20 : stuck == 1 ? 12 : 6;
+            var hop = ly.position().add(dir.normalize().scale(Math.min(len, dir.length())));
             BlockPos hp = BlockPos.containing(hop);
-            if (!level.isLoaded(hp)) return false;
+            if (!level.isLoaded(hp)) return true;
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, hp.getX(), hp.getZ());
             ly.walkTo(new BlockPos(hp.getX(), y, hp.getZ()), 1.0);
         }

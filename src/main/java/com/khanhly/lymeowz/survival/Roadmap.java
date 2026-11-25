@@ -17,7 +17,7 @@ public final class Roadmap {
     public enum Stage {
         WOOD("làm đồ gỗ", "chặt cây, làm bàn chế tạo, cuốc và rìu gỗ"),
         STONE("làm đồ đá", "đào đá, làm cuốc, rìu, kiếm đá, làm lò nung"),
-        SHELTER("dựng nhà", "gom đá với gỗ để xây một căn nhà nhỏ có cửa, đuốc, rương"),
+        SHELTER("dựng nhà", "đi tìm đất ở đồng bằng, đồng hoa hay rừng anh đào, rồi gom gỗ, đá, kính để xây dần căn nhà theo bản vẽ"),
         FARM("làm ruộng", "nhặt hạt giống, làm cuốc, cày đất trồng lúa để làm bánh mì"),
         PEN("làm chuồng", "dựng hàng rào, dụ bò cừu về nuôi cho có thịt với len"),
         BED("làm giường", "kiếm 3 cục len làm giường để tối ngủ trong nhà"),
@@ -43,7 +43,9 @@ public final class Roadmap {
         long now = ly.level().getGameTime();
         for (int guard = 0; guard < 3 && d.skipped.contains(s.name()); guard++) s = rawAfter(ly, s);
         if (d.stage != s.ordinal()) { d.stage = s.ordinal(); d.stageSince = now; }
-        else if ((s == Stage.FARM || s == Stage.PEN || s == Stage.BED) && now - d.stageSince > 24000) {
+        else if ((s == Stage.FARM || s == Stage.PEN || s == Stage.BED || (s == Stage.SHELTER && d.blueprintAt != null))
+                && now - d.stageSince > 24000) {
+            // Nhà to xây lâu: đã chọn được đất thì vừa xây dần vừa làm ruộng, làm chuồng như người chơi.
             d.skipped.add(s.name());
             com.khanhly.lymeowz.world.CompanionStore.markDirty();
         }
@@ -80,7 +82,7 @@ public final class Roadmap {
         return switch (s) {
             case WOOD -> pick >= 1;
             case STONE -> pick >= 2 && Survival.bestTier(all, Tools.Kind.SWORD) >= 2;
-            case SHELTER -> has(ly, "house");
+            case SHELTER -> has(ly, "home");
             case FARM -> has(ly, "farm");
             case PEN -> has(ly, "pen");
             case BED -> has(ly, "bed");
@@ -98,7 +100,7 @@ public final class Roadmap {
         int sword = Survival.bestTier(all, Tools.Kind.SWORD);
         if (pick < 1) return Stage.WOOD;
         if (pick < 2 || sword < 2) return Stage.STONE;
-        if (!has(ly, "house")) return Stage.SHELTER;
+        if (!has(ly, "home")) return Stage.SHELTER;
         if (!has(ly, "farm")) return Stage.FARM;
         if (!has(ly, "pen")) return Stage.PEN;
         if (!has(ly, "bed")) return Stage.BED;
@@ -122,7 +124,33 @@ public final class Roadmap {
             b.append(".");
         }
         b.append(" (bước ").append(s.ordinal() + 1).append("/").append(all.length).append(")");
+        String house = houseProgress(ly);
+        if (house != null) b.append(" ").append(house);
         return b.toString();
+    }
+
+    /** Nhà theo bản vẽ đang xây tới đâu, còn thiếu gì (null nếu không xây gì). */
+    public static String houseProgress(LyMeowzEntity ly) {
+        var d = ly.data();
+        if (d == null || d.blueprint == null || !(ly.level() instanceof net.minecraft.server.level.ServerLevel level)) return null;
+        var bp = com.khanhly.lymeowz.house.Blueprint.byName(d.blueprint);
+        if (bp == null) return null;
+        if (d.blueprintAt == null) return "Mình đang để dành đồ xây căn nhà \"" + bp.name + "\", còn phải tìm chỗ đất đẹp nữa.";
+        var o = new net.minecraft.core.BlockPos(d.blueprintAt.x, d.blueprintAt.y, d.blueprintAt.z);
+        int[] left = com.khanhly.lymeowz.survival.task.BlueprintTask.remaining(level, bp, o);
+        int total = 0;
+        for (var p : bp.pieces) if (!com.khanhly.lymeowz.house.Materials.optional(p.state())) total++;
+        int done = Math.max(0, total - left[0]);
+        StringBuilder b = new StringBuilder("Nhà mới (\"" + bp.name + "\") xây được " + (total == 0 ? 0 : done * 100 / total) + "%");
+        var need = com.khanhly.lymeowz.survival.task.BlueprintTask.need(level, bp, o, false);
+        var inv = com.khanhly.lymeowz.house.Materials.amounts(ly.inv());
+        StringBuilder miss = new StringBuilder();
+        for (var e : need.entrySet()) {
+            int lack = (int) Math.ceil(e.getValue() - inv.getOrDefault(e.getKey(), 0f));
+            if (lack > 0) miss.append(miss.length() == 0 ? "" : ", ").append(lack).append(" ").append(e.getKey().vn);
+        }
+        if (miss.length() > 0) b.append(", còn thiếu ").append(miss);
+        return b.append(".").toString();
     }
 
     /** Cô ấy có bao nhiêu của cải (túi + rương ở nhà). */

@@ -208,7 +208,8 @@ public final class SurvivalTest {
         mark("nướng chín thịt", all.has(Items.COOKED_BEEF));
         mark("sắt thỏi", all.has(Items.IRON_INGOT) || Survival.bestTier(all, Tools.Kind.PICKAXE) >= 3);
         mark("cuốc sắt", Survival.bestTier(all, Tools.Kind.PICKAXE) >= 3);
-        mark("xây nhà", com.khanhly.lymeowz.survival.Roadmap.has(ly, "house"));
+        mark("tìm đất làm nhà", ly.data() != null && (ly.data().blueprintAt != null || ly.data().structures.containsKey("home")));
+        mark("xây nhà", com.khanhly.lymeowz.survival.Roadmap.has(ly, "home") || com.khanhly.lymeowz.survival.Roadmap.has(ly, "house"));
         mark("làm ruộng", com.khanhly.lymeowz.survival.Roadmap.has(ly, "farm"));
         mark("làm chuồng", com.khanhly.lymeowz.survival.Roadmap.has(ly, "pen"));
         mark("đặt giường", com.khanhly.lymeowz.survival.Roadmap.has(ly, "bed"));
@@ -224,11 +225,11 @@ public final class SurvivalTest {
         lastHunger = ly.getHunger();
         mark("tự ăn khi đói", ate);
 
-        if (ticks % 200 == 0 && ticks <= 2400) {
+        if (ticks % 200 == 0 && (ticks <= 2400 || (ticks % 400 == 0 && ly.survival.currentName().equals("xây nhà")))) {
             var t = ly.getTarget();
             log(String.format("  · t=%d %s task=%s target=%s nav=%s distOwner=%.1f pos=%s hp=%.1f", ticks, ly.request() == null ? "tự do" : ly.request().type, ly.survival.currentName(),
                     t == null ? "-" : t.getType().toShortString() + (t.isAlive() ? "" : "(chết)"), ly.getNavigation().isDone() ? "done" : "moving",
-                    ly.distanceTo(owner), ly.blockPosition().toShortString(), ly.getHealth()));
+                    ly.distanceTo(owner), ly.blockPosition().toShortString(), ly.getHealth()) + " " + ly.survival.currentDebug());
         }
         if (ticks % 1200 == 0) {
             var m = ly.mind().data();
@@ -236,6 +237,10 @@ public final class SurvivalTest {
                     ticks / 1200, com.khanhly.lymeowz.survival.Roadmap.current(ly).title, ly.isSleeping() ? "ngủ" : ly.survival.currentName(), ly.survival.currentReason(), ly.getHunger(), ly.getHealth(),
                     m.fear, m.joy, m.boredom, m.curiosity, m.energy, m.social, ly.mind().dominantFeeling(), m.places.size(),
                     Survival.summary(ly.inventoryWithHand())));
+            String dbg = ly.survival.currentDebug();
+            if (!dbg.isEmpty()) log("      ⚙ " + dbg);
+            String hp = com.khanhly.lymeowz.survival.Roadmap.houseProgress(ly);
+            if (hp != null) log("      🏠 " + hp);
         }
         // Trò chuyện thử với chủ giả ở vài thời điểm.
         if (ticks == 6000) {
@@ -263,7 +268,27 @@ public final class SurvivalTest {
             owner.snapTo(ly.getX() + 2, ly.getY(), ly.getZ());
         }
         if (ticks == 6400) owner.snapTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5);
-        boolean allDone = milestones.size() >= 22;
+        if (ticks == 20 * 60 * 25 && ly.data() != null && ly.data().blueprintAt != null && !ly.data().structures.containsKey("home")) {
+            ServerLevel ow = srv.overworld();
+            // Bãi thử chỉ có ~22 cây, không đủ gỗ cho cả căn nhà: tặng một rương nguyên liệu để thử phần xây cho tới khi xong.
+            BlockPos chest = ly.structure("chest");
+            if (chest == null || !(ow.getBlockState(chest).getBlock() instanceof net.minecraft.world.level.block.ChestBlock)) {
+                var a = ly.data().blueprintAt;
+                chest = new BlockPos(a.x - 3, a.y + 1, a.z - 3);
+                ow.setBlockAndUpdate(chest, Blocks.CHEST.defaultBlockState());
+                ly.data().structures.put("chest", new CompanionStore.Spot("minecraft:overworld", chest.getX(), chest.getY(), chest.getZ()));
+            }
+            if (ow.getBlockEntity(chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity c) {
+                for (int i = 0; i < c.getContainerSize(); i++) c.setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+                net.minecraft.world.item.Item[] items = {Items.OAK_LOG, Items.OAK_LOG, Items.OAK_LOG, Items.OAK_LOG, Items.SPRUCE_LOG,
+                        Items.COBBLESTONE, Items.COBBLESTONE, Items.COBBLESTONE, Items.DIRT, Items.GLASS, Items.IRON_INGOT,
+                        Items.COAL, Items.WOOL.white(), Items.POPPY, Items.LEATHER, Items.COOKED_BEEF};
+                for (int i = 0; i < items.length; i++) c.setItem(i, new net.minecraft.world.item.ItemStack(items[i], 64));
+                c.setChanged();
+            }
+            log("  (thử nghiệm: đặt một rương đầy nguyên liệu cạnh nền nhà để xem cô ấy xây tới khi xong)");
+        }
+        boolean allDone = milestones.size() >= 23;
         if (allDone && !ly.survival.busy() && ticks % 100 == 0) finish("xong mọi mốc");
         else if (ticks >= MAX_TICKS) finish("hết giờ");
     }
@@ -280,24 +305,25 @@ public final class SurvivalTest {
         server.tickRateManager().stopSprinting();
         LyMeowzEntity ly = ow.getEntity(lyId) instanceof LyMeowzEntity e ? e : null;
         String[] all = {"có gỗ", "cuốc gỗ", "rìu gỗ", "có đá cuội", "cuốc đá", "rìu đá", "kiếm đá", "lò nung", "than",
-                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "xây nhà", "làm ruộng", "làm chuồng", "đặt giường", "ngủ trên giường", "viết nhật ký"};
+                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "tìm đất làm nhà", "xây nhà", "làm ruộng", "làm chuồng", "đặt giường", "ngủ trên giường", "viết nhật ký"};
         int ok = 0;
         StringBuilder missing = new StringBuilder();
         for (String m : all) if (milestones.containsKey(m)) ok++; else missing.append(" ").append(m);
         boolean pillarOk = pillar.stream().allMatch(p -> ow.getBlockState(p).is(Blocks.OAK_LOG));
         int litter = 0;
-        BlockPos house = ly == null ? null : ly.structure("house");
-        for (BlockPos p : BlockPos.betweenClosed(center.offset(-30, -3, -30), center.offset(30, 6, 30))) {
+        BlockPos table = ly == null ? null : ly.workTable();
+        for (BlockPos p : BlockPos.betweenClosed(center.offset(-40, -3, -40), center.offset(40, 6, 40))) {
             BlockState st = ow.getBlockState(p);
-            boolean inHouse = house != null && p.getX() >= house.getX() && p.getX() < house.getX() + 5
-                    && p.getZ() >= house.getZ() && p.getZ() < house.getZ() + 5;
-            if ((st.is(Blocks.CRAFTING_TABLE) || st.is(Blocks.FURNACE)) && !inHouse) litter++;
+            boolean mine = ly != null && (ly.ownsBlock(p) || p.equals(table)); // trong nhà / bàn đang dùng ở chỗ làm việc
+            if ((st.is(Blocks.CRAFTING_TABLE) || st.is(Blocks.FURNACE)) && !mine) litter++;
         }
+        int campLeft = ly == null || ly.data() == null ? 0 : ly.data().campBlocks.size();
         int cows = ow.getEntitiesOfClass(Cow.class, new net.minecraft.world.phys.AABB(center).inflate(40)).size();
         log("== Kết quả (" + why + ", " + ticks / 1200 + " phút trong game) ==");
         log((ok == all.length ? "PASS" : "FAIL") + " tiến trình sinh tồn " + ok + "/" + all.length + (missing.length() > 0 ? " — thiếu:" + missing : ""));
         log((pillarOk ? "PASS" : "FAIL") + " không chặt cột gỗ có lá người chơi đặt (giả làm nhà)");
         log((litter == 0 ? "PASS" : "FAIL") + " không bỏ bàn chế tạo / lò lại ngoài nhà (" + litter + ")");
+        log("Hộp trú đêm còn dựng: " + campLeft + " khối" + (ly != null && ly.isSleeping() ? " (đang ngủ)" : ""));
         log((cows >= 2 ? "PASS" : "FAIL") + " chừa lại ít nhất 2 con bò (" + cows + ")");
         if (ly != null) {
             log("Túi đồ cuối: " + Survival.summary(ly.inventoryWithHand()) + " | rương: " + ly.storedCount() + " món");

@@ -1,4 +1,4 @@
-# LyMeowz AI 🌸 — bản 6.0 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 7.0 (Minecraft 26.3)
 
 Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
 Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
@@ -22,7 +22,8 @@ Câu cửa miệng: **"Mugyu~"**, khi không hiểu hoặc khi ngại ngùng.
 - Block nứt dần theo đúng tốc độ của dụng cụ. Đồ rơi vào túi, dụng cụ bị mòn. Chặt cây thì cầm rìu, đào đá thì cầm cuốc.
 - **Đào mỏ kiểu cầu thang:** đào bậc thang xuống tới độ sâu cần (tầng sắt ~Y16, tầng kim cương ~Y-54), rồi đào hầm chính
   1×2 có nhánh hai bên. Cô ấy cắm đuốc khi tối, thấy quặng ở thành hầm thì đào theo, gặp nham thạch hay nước thì bịt lại
-  bằng đá, rồi đi ngược đường cũ lên mặt đất.
+  bằng đá, rồi đi ngược đường cũ lên mặt đất. Đường cũ bị chặn thì cô ấy **tự đào bậc thang đi thẳng lên** chứ không
+  đi tới đi lui một chỗ.
 - **Chạy** khi đi xa, **ngồi thuyền** thư giãn ngắm trời, **ngồi xuống đứng lên** chào bạn thân, tối **nằm giường ngủ**.
 - **Tự vệ:** tránh xa creeper, đánh quái lại gần, tự mặc **giáp tốt nhất** đang có, cầm **khiên** tay trái. Yếu thì
   chạy, đói thì ăn.
@@ -35,7 +36,7 @@ Cô ấy tính giai đoạn của mình từ những gì đang có, nên nếu m
 |---|---|---|
 | 1 | Đồ gỗ | chặt cây, bàn chế tạo, cuốc và rìu gỗ |
 | 2 | Đồ đá | đào đá, làm cuốc, rìu, kiếm đá và lò nung |
-| 3 | Dựng nhà | gom ~80 khối đá, xây nhà 5×5 có cửa, đuốc, bàn chế tạo, **rương** |
+| 3 | Dựng nhà | đi tìm đất đẹp ở đồng bằng / rừng hoa / rừng anh đào, tích gỗ, đá, kính… rồi **xây dần căn nhà theo bản vẽ** (xem dưới) |
 | 4 | Làm ruộng | nhổ cỏ lấy hạt, làm cuốc, cày đất, trồng lúa (có xô nước thì đổ nước giữa ruộng), thu hoạch và gieo lại, làm bánh mì |
 | 5 | Làm chuồng | chế hàng rào, dựng chuồng có cổng, **cầm đồ ăn dụ thú về**, cho ăn để chúng đẻ, cắt lông cừu, đông quá thì làm thịt bớt |
 | 6 | Làm giường | kiếm 3 len (cắt lông cừu hoặc săn cừu), chế giường, đặt vào nhà; từ đó tối về ngủ |
@@ -45,10 +46,42 @@ Cô ấy tính giai đoạn của mình từ những gì đang có, nên nếu m
 | 10 | Nether và End | rủ bạn bè cùng qua cổng; cô ấy đi theo, đánh quái cùng bạn (tự khám phá Nether và tự đánh rồng thì *chưa làm*) |
 
 Túi gần đầy thì cô ấy về nhà mở rương cất đồ thừa, hết đồ ăn thì lấy ra. Mở rương nhà cô ấy ra xem, bạn sẽ thấy cô ấy
-**giàu hơn bạn tưởng**. Ban đêm, nếu có giường thì cô ấy về ngủ. Nếu chưa có giường thì cô ấy cắm trại tại chỗ, đốt lửa
-và xây một hộp đá quanh mình để trú, sáng ra thì đập đi lấy lại đá. Cô gái dũng cảm và chăm chỉ thì có khi thức làm đêm.
+**giàu hơn bạn tưởng**. Ban đêm, nếu có giường thì cô ấy về ngủ; có nhà mà chưa có giường thì **về nhà ở trong nhà**.
+Chỉ khi chưa có nhà (hoặc nhà quá xa) cô ấy mới cắm trại tại chỗ, đốt lửa và dựng hộp trú quanh mình; sáng ra cô ấy
+**dỡ hộp lấy lại đá**, kể cả khi đã bị đẩy ra xa hay server khởi động lại giữa đêm (cô ấy nhớ từng khối đã đặt).
+Cô gái dũng cảm và chăm chỉ thì có khi thức làm đêm.
 
-## Nhà lớn dần theo thời gian
+**Bản năng sinh tồn là trên hết:** đói mà trong túi không còn gì ăn thì mọi việc khác (xây nhà, đào đá…) bị gác lại.
+Cô ấy đi săn xa hơn, hái quả, câu cá, về rương lấy đồ ăn; quanh đây hết thú thì đi về chỗ từng thấy đàn thú hoặc đi
+vùng mới tìm. Đói lả giữa đêm cô ấy cũng dậy đi kiếm ăn chứ không nằm chịu mất máu.
+
+**Bàn chế tạo:** đã đứng ở bàn thì cô ấy làm luôn **một lượt** mọi thứ đang cần (cuốc, rìu, kiếm…), không đặt bàn →
+làm một món → đập bàn → đặt lại nữa. Bàn đặt ở chỗ làm việc thì để đó dùng tiếp; chỉ khi **đi xa** (khám phá, đi tìm đất
+làm nhà, xây ở chỗ khác) cô ấy mới quay lại đập bàn mang theo.
+
+## Nhà theo bản vẽ (mới ở 7.0)
+
+Cô ấy không xây hộp đá vuông nữa mà xây **những căn nhà thật** từ file bản vẽ `.schem` (Sponge schematic, xuất từ
+WorldEdit / Litematica):
+
+- Mod có sẵn 2 bản vẽ: **survivalhouse5** (nhà gỗ nhỏ 13×12×13) và **survivalhouse2** (nhà hai tầng 14×20×18).
+  Cô ấy xây căn nhỏ trước; khi tới giai đoạn đồ sắt thì bắt đầu tích đồ xây căn lớn.
+- Thêm bản vẽ của bạn: thả file `.schem` vào `config/lymeowz/houses/`. Bản vẽ được xếp theo số khối, căn ít khối xây trước.
+- **Chọn đất:** nhà chỉ xây ở **đồng bằng, đồng hoa hướng dương, rừng hoa, rừng anh đào hoặc đồng cỏ (meadow)**. Ở chỗ
+  khác thì cô ấy đi tìm biome đó. Tới nơi cô ấy dò quanh một chỗ đủ rộng, khá bằng phẳng, không nước, ít cây; không ưng
+  thì nhớ lại vùng đó và đi hướng khác.
+- **Xây dần:** cô ấy đặt một rương tạm cạnh nền, dọn chỗ (chặt cây, cuốc đất), rồi xây từ móng lên: khối đặc trước,
+  cầu thang / cửa / đèn sau. Hết nguyên liệu thì đi kiếm tiếp (chặt cây, đào đá, nung kính…), có đủ thì quay lại xây
+  tiếp. Hỏi *"kế hoạch của cậu là gì?"* cô ấy sẽ nói nhà xây được bao nhiêu phần trăm và còn thiếu gì.
+- **Nguyên liệu kiểu người chơi:** gỗ loại nào cũng được (khúc gỗ tính 4 ván), hoa loại nào cũng được, đá cuội / đá
+  thường thay nhau. Đồ trang trí (hoa, đèn lồng, thảm, giá sách, giường…) không bắt buộc: thiếu thì để sau, xây xong
+  phần chính rồi mới **trang trí dần**.
+- Cao quá tầm với thì cô ấy **kê cột** nhảy lên đặt block như người chơi, xong thì đập cột xuống.
+- Xây xong thì đó là nhà của cô ấy: tối về đây, nghỉ ngơi ở đây, sự kiện "đứng trước cửa nhà" diễn ra trước cửa căn này.
+
+Nhà kiểu cũ (hộp 5×5 của bản trước) vẫn được giữ và sửa sang như dưới đây.
+
+## Nhà lớn dần theo thời gian (nhà kiểu cũ)
 
 Có giường rồi thì cô ấy bắt đầu sửa sang nhà, lần lượt từng việc, thiếu gì thì tự đi kiếm:
 

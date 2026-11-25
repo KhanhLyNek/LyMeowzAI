@@ -13,6 +13,9 @@ import com.khanhly.lymeowz.survival.task.CollectTask;
 import com.khanhly.lymeowz.survival.task.CraftTask;
 import com.khanhly.lymeowz.survival.task.EatTask;
 import com.khanhly.lymeowz.survival.task.ExploreTask;
+import com.khanhly.lymeowz.house.Materials;
+import com.khanhly.lymeowz.survival.task.BlueprintTask;
+import com.khanhly.lymeowz.survival.task.FindHomeTask;
 import com.khanhly.lymeowz.survival.task.FarmTask;
 import com.khanhly.lymeowz.survival.task.FishTask;
 import com.khanhly.lymeowz.survival.task.ForageTask;
@@ -96,6 +99,7 @@ public class Decider {
             craftCache = Survival.nextCraft(ly, level, all, stage);
             lavaCache = stage == Roadmap.Stage.NETHER ? nearLava(level) : null;
             waterCache = FishTask.findWater(ly, level, 24);
+            houseNeed = houseShortfall(level);
             berryCache = ForageTask.find(ly, level, 20, java.util.Set.of());
         }
 
@@ -164,7 +168,7 @@ public class Decider {
         if (waterCache != null && !night) {
             boolean rod = FishTask.hasRod(ly);
             float hungry = food < 4 ? 0.3f + needH * 0.45f : 0;
-            float relax = Roadmap.has(ly, "house") && m.fear < 30 ? (0.08f + 0.35f * bored) * (0.5f + p.cheerful) : 0;
+            float relax = (Roadmap.has(ly, "home") || Roadmap.has(ly, "house")) && m.fear < 30 ? (0.08f + 0.35f * bored) * (0.5f + p.cheerful) : 0;
             float s = Math.max(hungry, relax) * expect("câu cá");
             if (s > 0.05f) {
                 if (rod) out.add(new Option("câu cá", s, hungry > relax ? "FOOD_LOW" : "BORED", false, () -> new FishTask(ly, hungry > relax ? 5 : 3)));
@@ -188,6 +192,8 @@ public class Decider {
             case FARM, PEN -> 20;
             default -> 12 + (int) (8 * p.builder);
         };
+        if (houseNeed != null)
+            woodTarget = Math.max(woodTarget, logs + Math.min(24, (int) Math.ceil(houseNeed.getOrDefault(Materials.Mat.WOOD, 0f) / 4f)));
         if (focus == Survival.Focus.WOOD) woodTarget = 64;
         if (treeCache != null && logs < woodTarget) {
             float need = 1 - (float) logs / woodTarget;
@@ -198,7 +204,12 @@ public class Decider {
 
         // Đá: nhà cần ~80 khối, sau đó giữ ít để bịt nham thạch, xây hộp trú.
         int cobble = all.count(ItemTags.STONE_TOOL_MATERIALS) + all.count(Items.COBBLED_DEEPSLATE);
-        int stoneTarget = focus == Survival.Focus.STONE ? 64 : stage == Roadmap.Stage.SHELTER ? HouseTask.BLOCKS + 12 : 24;
+        int cobbleNow = cobble;
+        int stoneTarget = focus == Survival.Focus.STONE ? 64 : 24;
+        if (houseNeed != null) {
+            // Nhà đang xây còn cần bao nhiêu đá / gỗ thì gom thêm bấy nhiêu (mỗi chuyến một ít).
+            stoneTarget = Math.max(stoneTarget, cobbleNow + Math.min(64, (int) Math.ceil(houseNeed.getOrDefault(Materials.Mat.STONE, 0f))));
+        }
         int coal = all.count(ItemTags.COALS);
         if (pickTier >= 1 && (cobble < stoneTarget || coal < 6)) {
             float need = Math.max(1 - (float) cobble / stoneTarget, coal < 6 ? 0.4f : 0);
@@ -212,10 +223,10 @@ public class Decider {
                 // Nhớ có bãi đá ở chỗ khác: đi tới đó.
                 BlockPos at = placePos(mind.nearest(Mind.PlaceKind.STONE, ly.blockPosition()));
                 out.add(new Option("khám phá", s * 0.9f, "STONE_LOW", false, () -> new ExploreTask(ly, at)));
-            } else if (pickTier >= 1 && ly.getHealth() > 12 && ly.getBlockY() - 10 > level.getMinY() + 8) {
-                // Không thấy đá lộ thiên: đào cầu thang xuống một đoạn như người chơi.
-                int target = ly.getBlockY() - 10;
-                out.add(new Option("đào mỏ", s * 0.9f, "STONE_LOW", false, () -> new StairMineTask(ly, target, 8)));
+            } else if (pickTier >= 1 && ly.getHealth() > 12 && ly.getBlockY() - 14 > level.getMinY() + 8) {
+                // Không thấy đá lộ thiên: đào cầu thang xuống một đoạn như người chơi (một chuyến cho ra trò, đỡ lên xuống nhiều lần).
+                int target = ly.getBlockY() - 14;
+                out.add(new Option("đào mỏ", s * 0.9f, "STONE_LOW", false, () -> new StairMineTask(ly, target, 14)));
             }
         }
 
@@ -242,21 +253,10 @@ public class Decider {
         if (now - siteTime > 20 * 30) siteTime = now;
         boolean freshSites = siteTime == now;
 
-        if (stage.ordinal() >= Roadmap.Stage.SHELTER.ordinal() && !Roadmap.has(ly, "house")) {
-            int blocks = all.count(HouseTask.WALL);
-            boolean resume = ly.structure("plan:house") != null;
-            if ((blocks >= HouseTask.BLOCKS || (resume && blocks >= 8)) && all.count(ItemTags.PLANKS) + all.count(ItemTags.LOGS) * 4 >= 16) {
-                BlockPos plan = ly.structure("plan:house");
-                if (plan != null) houseSite = plan;
-                else if (houseSite == null || freshSites) houseSite = HouseTask.findSite(ly, level, center, 20);
-                if (houseSite != null) {
-                    BlockPos site = houseSite;
-                    float s = 0.6f + 0.3f * p.builder + (night ? 0.1f : 0);
-                    out.add(new Option("xây nhà", s, "BUILDER", false, () -> { houseSite = null; return new HouseTask(ly, site); }));
-                }
-            }
-        }
-        BlockPos house = ly.structure("house");
+        // Nhà theo bản vẽ: tìm đất → gom đồ → xây dần; ở ổn rồi thì xây tiếp nhà lớn hơn, trang trí dần.
+        houseOptions(level, all, out, p, night, stage);
+        BlockPos house = ly.structure("home") != null ? ly.structure("home") : ly.structure("house");
+        boolean legacyHouse = ly.structure("home") == null && ly.structure("house") != null;
         if (homeNear && house != null) {
             // Ruộng.
             BlockPos farm = ly.structure("farm");
@@ -290,10 +290,10 @@ public class Decider {
             // Giường: có len thì chế, có giường thì đặt; thiếu len thì đi tìm cừu.
             if (!Roadmap.has(ly, "bed") && stage.ordinal() >= Roadmap.Stage.BED.ordinal() - 1) {
                 Item bedItem = Items.BED.white();
-                if (all.count(ItemTags.BEDS) > 0) {
+                if (all.count(ItemTags.BEDS) > 0 && legacyHouse) {
                     out.add(new Option("đặt giường", 0.7f, "BUILDER", false, () -> new BedTask(ly, house)));
                 } else if (all.count(ItemTags.WOOL) >= 3) {
-                    if (CraftTask.canMake(ly, level, bedItem))
+                    if (legacyHouse && CraftTask.canMake(ly, level, bedItem))
                         out.add(new Option("chế tạo", 0.65f, "UPGRADE", false, () -> new CraftTask(ly, bedItem)));
                 } else if (!all.has(Items.SHEARS)) {
                     Animal sheep = nearestSheep(level, pen);
@@ -304,7 +304,7 @@ public class Decider {
                 }
             }
             // Nhà lớn dần: đuốc, vườn hoa, cửa sổ, phòng mới.
-            if (!night && Roadmap.has(ly, "bed")) upgradeOptions(level, all, out, p, house);
+            if (!night && legacyHouse && Roadmap.has(ly, "bed")) upgradeOptions(level, all, out, p, house);
             // Cất đồ vào rương.
             BlockPos chest = ly.structure("chest");
             if (chest != null && now > storeAgain && StoreTask.wants(ly)) {
@@ -360,8 +360,35 @@ public class Decider {
             float s = (0.15f + 0.25f * p.builder) * expect("thắp đuốc");
             out.add(new Option("thắp đuốc", s, "DARK", false, () -> new SimpleTasks.Light(ly)));
         }
+
+        // ---------------------------------------------------------------- bản năng sinh tồn
+        // Đói mà trong túi không có gì ăn được: không còn đồ ăn quanh đây thì đi xa tìm (chỗ nhớ có thú, hoặc vùng mới).
+        boolean noFood = all.count(s -> Tools.edible(s, Math.min(ly.getHunger(), 4))) == 0;
+        if (noFood && ly.getHunger() <= 10 && out.stream().noneMatch(o -> isFood(o.reason()) && !o.action().equals("chế tạo"))) {
+            var animals = mind.nearest(Mind.PlaceKind.ANIMALS, ly.blockPosition());
+            BlockPos to = animals != null && placePos(animals).distSqr(ly.blockPosition()) > 16 * 16 ? placePos(animals)
+                    : ExploreTask.pickTarget(ly, level, ly.blockPosition());
+            if (to != null) {
+                boolean starving = ly.getHunger() <= 6;
+                out.add(new Option("khám phá", starving ? 0.93f : 0.6f, "HUNGRY", starving, () -> new ExploreTask(ly, to)));
+            }
+        }
+        // Đói lả (≤ 8) mà chưa có gì ăn: mọi việc khác (xây nhà, đào đá...) đều xếp sau chuyện kiếm ăn.
+        if (noFood && ly.getHunger() <= 8) {
+            float k = ly.getHunger() <= 4 ? 0.2f : 0.4f;
+            out.replaceAll(o -> isFood(o.reason()) || SURVIVE.contains(o.action()) ? o
+                    : new Option(o.action(), o.score() * k, o.reason(), false, o.make()));
+        }
         return out;
     }
+
+    /** Những lý do thuộc về chuyện ăn uống. */
+    public static final java.util.Set<String> FOOD_REASONS = java.util.Set.of("HUNGRY", "FOOD_LOW", "RAW_FOOD");
+
+    public static boolean isFood(String reason) {
+        return reason != null && FOOD_REASONS.contains(reason);
+    }
+    private static final java.util.Set<String> SURVIVE = java.util.Set.of("chạy trốn", "nhặt đồ", "ăn", "nung");
 
     /** Sửa sang nhà: việc đầu tiên đủ đồ thì làm; chưa đủ thì đi gom đồ cho những việc còn lại. */
     private void upgradeOptions(ServerLevel level, LyInventory all, List<Option> out, Personality p, BlockPos house) {
@@ -427,6 +454,97 @@ public class Decider {
     }
 
     private BlockPos portalSite, lavaCache, waterCache, berryCache;
+    /** Nguyên liệu nhà đang xây còn thiếu (đã trừ đồ trong túi và trong rương). */
+    private java.util.Map<Materials.Mat, Float> houseNeed;
+    private boolean houseCanProgress;
+
+    /** Bản vẽ đang xây (hoặc sẽ xây) và chỗ đặt, nếu có. */
+    private com.khanhly.lymeowz.house.Blueprint currentBlueprint() {
+        var d = ly.data();
+        if (d == null || d.blueprint == null) return null;
+        return com.khanhly.lymeowz.house.Blueprint.byName(d.blueprint);
+    }
+
+    public BlockPos currentOrigin() {
+        var d = ly.data();
+        if (d == null || d.blueprintAt == null || !d.blueprintAt.dim.equals(com.khanhly.lymeowz.compat.Compat.dimId(ly.level().dimension()))) return null;
+        return new BlockPos(d.blueprintAt.x, d.blueprintAt.y, d.blueprintAt.z);
+    }
+
+    /** Thiếu gì cho nhà đang xây (null nếu không xây gì). */
+    private java.util.Map<Materials.Mat, Float> houseShortfall(ServerLevel level) {
+        var bp = currentBlueprint();
+        BlockPos at = currentOrigin();
+        houseCanProgress = false;
+        if (bp == null || at == null || !level.isLoaded(at)) return null;
+        var need = BlueprintTask.need(level, bp, at, false);
+        java.util.Map<Materials.Mat, Float> have = Materials.amounts(ly.inventoryWithHand());
+        BlockPos chest = ly.structure("chest");
+        if (chest != null) {
+            var st = level.getBlockState(chest);
+            if (st.getBlock() instanceof net.minecraft.world.level.block.ChestBlock cb) {
+                var c = net.minecraft.world.level.block.ChestBlock.getContainer(cb, st, level, chest, true);
+                if (c != null) for (var e : Materials.amounts(c).entrySet()) have.merge(e.getKey(), e.getValue(), Float::sum);
+            }
+        }
+        java.util.Map<Materials.Mat, Float> out = new java.util.EnumMap<>(Materials.Mat.class);
+        for (var e : need.entrySet()) {
+            float h = have.getOrDefault(e.getKey(), 0f);
+            if (e.getValue() > h) out.put(e.getKey(), e.getValue() - h);
+        }
+        // Đủ đồ xây tiếp một đoạn ra trò (≥ 24 khối, hoặc phần còn lại) thì mới đi xây, không thì đi kiếm tiếp.
+        int left = BlueprintTask.remaining(level, bp, at)[0];
+        int batch = Math.min(24, left);
+        houseCanProgress = need.isEmpty() || left == 0 || BlueprintTask.affordable(level, bp, at, have, batch) >= batch;
+        return out;
+    }
+
+    /** Nhà theo bản vẽ. */
+    private void houseOptions(ServerLevel level, LyInventory all, List<Option> out, Personality p, boolean night, Roadmap.Stage stage) {
+        var d = ly.data();
+        if (d == null) return;
+        var plans = com.khanhly.lymeowz.house.Blueprint.all();
+        if (plans.isEmpty()) return;
+        boolean hasHome = d.structures.containsKey("home");
+        // Xây nhà đầu tiên khi đã có đồ đá; nhà tiếp theo khi đã có đồ sắt.
+        boolean wantNew = !hasHome ? stage.ordinal() >= Roadmap.Stage.SHELTER.ordinal()
+                : stage.ordinal() >= Roadmap.Stage.IRON.ordinal() && d.builtHouses.size() < plans.size();
+        // Nhà đầu tiên: sống ngoài trời khám phá, tích gỗ đá một thời gian (~5 phút) rồi mới đi chọn đất.
+        if (wantNew && !hasHome && d.stage == Roadmap.Stage.SHELTER.ordinal()
+                && level.getGameTime() - d.stageSince < 6000 && Materials.amount(all, Materials.Mat.WOOD) < 96) wantNew = false;
+        if (wantNew && d.blueprint == null && !night) {
+            var next = plans.get(Math.min(d.builtHouses.size(), plans.size() - 1));
+            if (!d.builtHouses.contains(next.name)) {
+                float s = hasHome ? 0.3f + 0.2f * p.builder : 0.55f + 0.2f * p.curious + 0.1f * p.builder;
+                out.add(new Option("tìm đất làm nhà", s, "BUILDER", false, () -> new FindHomeTask(ly, next, hasHome)));
+            }
+        }
+        var bp = currentBlueprint();
+        BlockPos at = currentOrigin();
+        if (bp != null && at != null && houseCanProgress && at.distSqr(ly.blockPosition()) < 160 * 160) {
+            float s = 0.6f + 0.3f * p.builder - (night ? 0.2f : 0);
+            out.add(new Option("xây nhà", s, "BUILDER", false, () -> new BlueprintTask(ly, bp, at, false)));
+        }
+        // Trang trí dần nhà đang ở: hoa, đèn lồng, thảm, giường... khi có đồ.
+        if (hasHome && d.homeBlueprint != null && !night && level.getGameTime() > decorAgain) {
+            var home = com.khanhly.lymeowz.house.Blueprint.byName(d.homeBlueprint);
+            BlockPos origin = ly.structure("home");
+            if (home != null && origin != null && level.isLoaded(origin)) {
+                var need = BlueprintTask.need(level, home, origin, true);
+                java.util.Map<Materials.Mat, Float> have = Materials.amounts(ly.inventoryWithHand());
+                boolean can = false;
+                for (var e : need.entrySet()) if (have.getOrDefault(e.getKey(), 0f) >= Math.min(e.getValue(), 1)) can = true;
+                if (can && !need.isEmpty()) {
+                    out.add(new Option("trang trí nhà", 0.35f + 0.25f * p.builder, "BUILDER", false, () -> {
+                        decorAgain = level.getGameTime() + 20 * 60 * 2;
+                        return new BlueprintTask(ly, home, origin, true);
+                    }));
+                }
+            }
+        }
+    }
+
+    private long decorAgain;
 
     private Mind mind() {
         return ly.mind();
