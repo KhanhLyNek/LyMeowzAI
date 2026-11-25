@@ -36,7 +36,8 @@ public final class SimpleTasks {
         @Override protected boolean run(ServerLevel level) {
             // Nghỉ kiểu người chơi: lững thững đi vài bước, đứng ngó (ánh nhìn do Mannerisms lo).
             ServerPlayer o = ly.focusPlayer();
-            boolean friend = o != null && o.level() == level && ly.affinity(o) >= LyMeowzEntity.FRIEND;
+            // Bạn bè đang ở gần (trong ~20 block) thì nghỉ cạnh bạn; xa hơn thì thôi, không lặn lội đi tìm.
+            boolean friend = o != null && o.level() == level && ly.affinity(o) >= LyMeowzEntity.FRIEND && o.distanceTo(ly) < 20;
             net.minecraft.core.BlockPos home = ly.builtHomeInside();
             if (friend && o.distanceTo(ly) > 7 && ly.getNavigation().isDone()) {
                 ly.getNavigation().moveTo(o, 0.9);

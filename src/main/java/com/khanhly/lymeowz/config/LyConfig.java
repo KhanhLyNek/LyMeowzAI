@@ -18,14 +18,20 @@ public class LyConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static LyConfig INSTANCE = new LyConfig();
 
-    /** Cô ấy thường ở trong khoảng này (block) quanh người chơi gần nhất. */
+    /** (Không còn dùng từ 7.1: cô ấy sống quanh nhà của mình, không bám theo người chơi.) */
     public int stayNearPlayer = 30;
-    /** Cô ấy để ý tới người chơi trong khoảng này; xa hơn thì sống một mình ở nhà của cô ấy. */
+    /** Cô ấy để ý thấy người chơi trong khoảng này (chào hỏi, ghé chơi). */
     public int noticePlayerRange = 96;
     /** Bán kính làm việc khi ở một mình quanh nhà. */
     public int homeWorkRadius = 48;
-    /** Khi được nhờ đi theo mà người chơi ở quá xa (hoặc khác chiều không gian) thì dịch chuyển tới. */
+    /** (Không còn dùng từ 7.1: cô ấy không dịch chuyển tới người chơi nữa.) */
     public int teleportDistance = 160;
+    /** Đang đi theo mà bạn bỏ xa hơn chừng này (block) thì cô ấy thôi theo, đi làm việc của mình. */
+    public int followDistance = 32;
+    /** Như trên, cho người rất thân (độ thân ≥ 61): cô ấy chịu khó tìm đường theo xa hơn. */
+    public int followDistanceClose = 160;
+    /** Gọi "lại đây": bạn bè thì cô ấy chỉ tới nếu bạn ở trong khoảng này; người rất thân gọi thì ở đâu cũng tìm đường tới. */
+    public int comeDistance = 48;
     /** Không chặt/đào/săn trong bán kính này quanh giường của người chơi. */
     public int protectRadius = 12;
     /** Bán kính chunk ticket cô ấy tự giữ quanh mình (như một người chơi thật, thế giới quanh cô ấy luôn chạy). */

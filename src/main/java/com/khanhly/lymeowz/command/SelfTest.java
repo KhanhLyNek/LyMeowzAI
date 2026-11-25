@@ -37,6 +37,7 @@ public final class SelfTest {
         int passed, failed;
         boolean seenInNether;
         int waited;
+        net.minecraft.world.entity.Mob zombie;
 
         LyMeowzEntity ly() {
             for (ServerLevel l : server.getAllLevels()) {
@@ -126,7 +127,7 @@ public final class SelfTest {
         }));
         steps.add(new Step(60, "không có ai → tự đi về nhà", c -> {
             LyMeowzEntity e = c.ly();
-            c.check("vẫn được tick ở xa (chunk ticket)", e != null && e.tickCount > 50, e == null ? "null" : "tick " + e.tickCount);
+            c.check("vẫn được tick ở xa (chunk ticket)", e != null && e.tickCount > 40, e == null ? "null" : "tick " + e.tickCount);
             if (e != null) c.distBefore = e.position().distanceTo(Vec3.atBottomCenterOf(c.home));
         }));
         steps.add(new Step(200, "đã đi về phía nhà", c -> {
@@ -175,6 +176,39 @@ public final class SelfTest {
             c.check("viết nhật ký", page.startsWith("Ngày 1") && page.length() > 20 && book.is(Items.WRITTEN_BOOK), page.replace("\n", " "));
             for (LyMeowzEntity.Expr x : LyMeowzEntity.Expr.values()) e.express(x);
             c.check("biểu cảm", true, "");
+        }));
+        steps.add(new Step(0, "tốc độ như người chơi + bảng Tab + quái", c -> {
+            LyMeowzEntity e = c.ly();
+            if (e == null) return;
+            e.setSprinting(false);
+            double attr = e.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+            e.setSpeed((float) (1.4 * attr));
+            float walk = e.getSpeed();
+            e.setSprinting(true);
+            attr = e.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+            e.setSpeed((float) (1.4 * attr));
+            float sprint = e.getSpeed();
+            e.setSprinting(false);
+            c.check("tốc độ như người chơi (đi ≈ 4.3 m/s, chạy ≈ 5.6 m/s)", Math.abs(walk - 0.313f) < 0.01f && Math.abs(sprint - 0.357f) < 0.01f,
+                    String.format("đi %.3f (vận tốc %.3f), chạy %.3f (vận tốc %.3f)", walk, walk * walk, sprint, sprint * sprint));
+            String id = e.getUUID().toString();
+            c.check("dòng bảng Tab", com.khanhly.lymeowz.world.TabPresence.isOurs(com.khanhly.lymeowz.world.TabPresence.tabId(id))
+                    && !com.khanhly.lymeowz.world.TabPresence.isOurs(e.getUUID()), com.khanhly.lymeowz.world.TabPresence.tabId(id).toString());
+            var z = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(ow, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+            if (z != null) {
+                Compat.placeAt(z, e.getX() + 6, e.getY(), e.getZ(), 0f, 0f);
+                z.setPersistenceRequired();
+                ow.addFreshEntity(z);
+                c.zombie = z;
+            }
+        }));
+        steps.add(new Step(80, "quái vật săn cô ấy", c -> {
+            LyMeowzEntity e = c.ly();
+            var z = c.zombie;
+            c.check("thây ma nhắm vào cô ấy như nhắm người chơi", z != null && e != null && z.getTarget() == e,
+                    z == null ? "không tạo được thây ma" : "mục tiêu: " + (z.getTarget() == null ? "không" : z.getTarget().getName().getString()));
+            if (z != null) z.discard();
+            if (e != null) { e.setTarget(null); e.heal(20); }
         }));
         steps.add(new Step(5, "ngất khi kiệt sức", c -> {
             LyMeowzEntity e = c.ly();

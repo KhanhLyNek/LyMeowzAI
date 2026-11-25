@@ -1,4 +1,4 @@
-# LyMeowz AI 🌸 — bản 7.0 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 7.1 (Minecraft 26.3)
 
 Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
 Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
@@ -9,9 +9,20 @@ Câu cửa miệng: **"Mugyu~"**, khi không hiểu hoặc khi ngại ngùng.
 
 - **Mỗi thế giới có một cô.** Lần đầu có người chơi vào thế giới, cô ấy xuất hiện ở đâu đó cách 40–60 block.
 - **Không có tên** cho tới khi bạn dùng **bảng tên** đặt cho cô ấy. Trước đó, trong khung chat cô ấy hiện là *Cô gái lạ*.
-- **Không đi theo ai cả.** Cô ấy thường loanh quanh trong khoảng **30 block** quanh người chơi gần nhất (trong 96 block).
-  Không có ai ở gần thì cô ấy về nhà của mình và sống một mình. Khi làm việc ở nhà (xây, làm ruộng, đào mỏ…) cô ấy có thể
-  đi xa hơn.
+- **Không đi theo ai cả.** Cô ấy sống quanh **nhà của mình** (chưa có nhà thì quanh chỗ cô ấy xuất hiện lần đầu), bạn
+  đi đâu kệ bạn. Muốn gặp thì bạn tự tới. Lúc thấy cô đơn mà có bạn bè ở gần, cô ấy có thể tự ghé qua nói chuyện.
+- **Nhờ đi theo** (bạn bè trở lên): cô ấy đi bộ, chạy theo bạn như người chơi. Bạn bỏ xa quá **32 block** thì
+  cô ấy thôi theo và đi làm việc của mình. Người **rất thân** (độ thân ≥ 61) thì cô ấy chịu khó tìm đường theo tới 160 block.
+  Cô ấy **không dịch chuyển** tới chỗ bạn nữa. Chỉ có một trường hợp: hai người đứng sát nhau rồi bạn bước qua cổng, thì
+  cô ấy theo sang bên kia như bước qua cổng cùng bạn.
+- **Gọi "lại đây"**: bạn bè gọi trong khoảng 48 block thì cô ấy đi bộ tới. Xa hơn thì cô ấy bảo bạn qua đây đi. Người
+  **rất thân** gọi thì xa mấy cô ấy cũng tự tìm đường tới (gọi tên cô ấy để cô ấy nghe thấy từ xa).
+- **Hiện trong bảng Tab** như một người chơi đang online: tên (chưa đặt tên thì là *Cô gái lạ*), ping, chế độ sinh tồn.
+  Máy có cài mod thì cạnh tên còn hiện mặt cô ấy.
+- **Quái vật săn cô ấy như săn người chơi:** thây ma, xương, nhện (khi tối), creeper… thấy cô ấy là đuổi theo. Quái trung
+  lập (Enderman, piglin thây ma…) vẫn chỉ đánh khi bị chọc.
+- **Đi, chạy đúng tốc độ người chơi** (đi bộ ≈ 4,3 m/s, chạy nhanh ≈ 5,6 m/s), không còn lao đi nhanh bất thường hay vừa
+  ngồi thụp vừa chạy.
 - **Thế giới quanh cô ấy luôn chạy**, như quanh một người chơi: cô ấy tự giữ chunk quanh mình, server khởi động lại
   thì cô ấy tiếp tục cuộc sống ở chỗ cũ. Nếu entity bị mất, mod tạo lại cô ấy ở chỗ cũ với nguyên trí nhớ, túi đồ, nhà cửa.
 
@@ -247,16 +258,17 @@ skin như *3D Skin Layers*, *EMF/ETF* cũng nhận ra. Giáp cô ấy mặc cũn
 ## Cài đặt
 
 Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.4 trở lên,
-[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-6.0.0+26.3.jar` vào thư mục `mods/`.
+[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-7.1.0+26.3.jar` vào thư mục `mods/`.
 
 ## Cấu hình: `config/lymeowz.json`
 
 | Khoá | Mặc định | |
 |---|---|---|
-| `stayNearPlayer` | 30 | cô ấy thường ở trong khoảng này quanh người chơi gần nhất |
-| `noticePlayerRange` | 96 | xa hơn khoảng này thì cô ấy sống ở nhà mình |
+| `noticePlayerRange` | 96 | khoảng cô ấy để ý thấy người chơi (chào hỏi, ghé chơi) |
 | `homeWorkRadius` | 48 | bán kính làm việc quanh nhà khi ở một mình |
-| `teleportDistance` | 160 | đang được nhờ đi theo mà bạn ở xa hơn (hoặc khác chiều không gian) thì cô ấy dịch chuyển tới |
+| `followDistance` | 32 | đang đi theo mà bạn bỏ xa hơn chừng này thì cô ấy thôi theo |
+| `followDistanceClose` | 160 | như trên, cho người rất thân |
+| `comeDistance` | 48 | bạn bè gọi "lại đây" trong khoảng này thì cô ấy tới (người rất thân gọi thì xa mấy cũng tới) |
 | `protectRadius` | 12 | không chặt, đào, săn quanh giường của người chơi |
 | `chunkLoadRadius` | 2 | chunk cô ấy tự giữ quanh mình |
 | `spawnOnFirstJoin` | true | tạo cô ấy khi có người chơi vào lần đầu |

@@ -27,7 +27,7 @@ public final class ClientCompat {
 
     private static final Identifier TEXTURE =
             Identifier.fromNamespaceAndPath(LyMeowzMod.MOD_ID, "textures/entity/lymeowz.png");
-    private static final PlayerSkin SKIN = new PlayerSkin(
+    public static final PlayerSkin SKIN = new PlayerSkin(
             new ClientAsset.ResourceTexture(Identifier.fromNamespaceAndPath(LyMeowzMod.MOD_ID, "entity/lymeowz"), TEXTURE),
             null, null, PlayerModelType.SLIM, true);
 

@@ -107,9 +107,17 @@ public class Brain {
                 ly.hearts();
             }
             case HOME -> ask(player, a, () -> { ly.setRequest("HOME", player, 20 * 60 * 10, null); reply(player, Speech.Act.ACK, to.text("HOME")); });
-            case COME, FOLLOW -> ask(player, a, () -> {
+            case FOLLOW -> ask(player, a, () -> {
                 ly.setRequest("FOLLOW", player, 0, null);
-                reply(player, Speech.Act.ACK, to.text(intent == Intent.COME ? "COME" : "FOLLOW"));
+                reply(player, Speech.Act.ACK, to.text("FOLLOW"));
+            });
+            case COME -> ask(player, a, () -> {
+                // "Lại đây": cô ấy đi bộ tìm đường tới. Bạn bè thì chỉ khi ở gần; rất thân thì xa mấy cũng tới.
+                boolean same = player.level() == ly.level();
+                double d = same ? player.distanceTo(ly) : Double.MAX_VALUE;
+                if (!same || (d > cfg.comeDistance && a < LyMeowzEntity.CLOSE)) { reply(player, Speech.Act.TOO_FAR, to); return; }
+                ly.setRequest("VISIT", player, 20L * 60 * 6, null);
+                reply(player, Speech.Act.ACK, to.text("COME"));
             });
             case STAY -> ask(player, a, () -> {
                 ly.setRequest("WAIT", player, 20L * 60 * cfg.waitMinutes, ly.blockPosition());
@@ -221,7 +229,11 @@ public class Brain {
             while (m.find()) {
                 if (ly.affinity(player) < LyMeowzEntity.FRIEND) break;
                 switch (m.group(1).toUpperCase(Locale.ROOT)) {
-                    case "FOLLOW", "COME" -> ly.setRequest("FOLLOW", player, 0, null);
+                    case "FOLLOW" -> ly.setRequest("FOLLOW", player, 0, null);
+                    case "COME" -> {
+                        if (player.level() == ly.level() && (player.distanceTo(ly) <= LyConfig.get().comeDistance || ly.affinity(player) >= LyMeowzEntity.CLOSE))
+                            ly.setRequest("VISIT", player, 20L * 60 * 6, null);
+                    }
                     case "STAY" -> ly.setRequest("WAIT", player, 20L * 60 * LyConfig.get().waitMinutes, ly.blockPosition());
                     case "HOME" -> ly.setRequest("HOME", player, 20 * 60 * 10, null);
                     case "WOOD" -> ly.survival.setFocus(Survival.Focus.WOOD);

@@ -49,8 +49,8 @@ public final class CompanionTracker {
     public static void init() {
         ServerLifecycleEvents.SERVER_STARTED.register(s -> { CompanionStore.load(s); recallAll(s); });
         ServerLifecycleEvents.SERVER_STOPPING.register(s -> CompanionStore.save());
-        ServerLifecycleEvents.SERVER_STOPPED.register(s -> { CompanionStore.unload(); PENDING.clear(); spawnCountdown = -1; });
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(server, handler.player));
+        ServerLifecycleEvents.SERVER_STOPPED.register(s -> { CompanionStore.unload(); PENDING.clear(); spawnCountdown = -1; TabPresence.reset(); });
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> { TabPresence.forget(handler.player.getUUID()); onJoin(server, handler.player); });
         ServerTickEvents.END_SERVER_TICK.register(CompanionTracker::tick);
         ServerEntityEvents.ENTITY_LOAD.register(CompanionTracker::onLoad);
         ServerLivingEntityEvents.AFTER_DEATH.register(CompanionTracker::onDeath);
@@ -120,6 +120,7 @@ public final class CompanionTracker {
     private static void tick(MinecraftServer server) {
         com.khanhly.lymeowz.command.SelfTest.tick(server);
         com.khanhly.lymeowz.command.SurvivalTest.tick(server);
+        TabPresence.tick(server);
 
         if (spawnCountdown > 0 && --spawnCountdown == 0) {
             spawnCountdown = -1;
@@ -160,6 +161,7 @@ public final class CompanionTracker {
 
     private static void onLoad(Entity entity, ServerLevel level) {
         com.khanhly.lymeowz.command.SelfTest.onEntityLoad(entity, level);
+        MonsterAggro.hook(entity);
         if (!(entity instanceof LyMeowzEntity ly)) return;
         if (CompanionStore.get(ly.getUUID()) == null && CompanionStore.isRetired(ly.getUUID())) {
             LyMeowzMod.LOGGER.info("Gỡ bản LyMeowz cũ {}", ly.getUUID());

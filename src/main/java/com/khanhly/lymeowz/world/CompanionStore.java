@@ -78,6 +78,8 @@ public final class CompanionStore {
         public List<Spot> rejectedSites = new ArrayList<>();
         /** Các khối của hộp trú đêm đang dựng (để sáng ra / khởi động lại vẫn nhớ mà dỡ). */
         public List<Spot> campBlocks = new ArrayList<>();
+        /** Vùng đất quen khi chưa có nhà. */
+        @Nullable public Spot territory;
         /** Bàn chế tạo cô ấy tự đặt ở chỗ đang làm việc (giữ lại dùng tiếp, đi xa mới thu về). */
         @Nullable public Spot workTable;
         /** Giai đoạn trong lộ trình sinh tồn, và từ lúc nào (game time). */

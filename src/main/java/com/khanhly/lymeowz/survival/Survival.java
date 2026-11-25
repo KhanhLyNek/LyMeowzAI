@@ -113,7 +113,7 @@ public class Survival {
             // Mỗi giây xem có việc gì khẩn cấp hơn không (đói lả, gặp quái khi đang yếu...).
             if (age % 20 == 0) {
                 Decider.Option urgent = decider.best(decider.evaluate(level, center, radius, focus).stream()
-                        .filter(o -> o.urgent() && !o.action().equals(current.name())).toList());
+                        .filter(o -> o.urgent() && !o.action().equals(current.name()) && !backedOff(level, o)).toList());
                 boolean foodFirst = urgent != null && Decider.isFood(urgent.reason()) && ly.getHunger() <= 6
                         && !Decider.isFood(currentReason) && !"ăn".equals(current.name());
                 if (urgent != null && (urgent.score() > currentScore + 0.2f || foodFirst)) {
@@ -129,7 +129,7 @@ public class Survival {
             return;
         }
         if (cooldown-- > 0) return;
-        Decider.Option o = decider.best(decider.evaluate(level, center, radius, focus));
+        Decider.Option o = decider.best(decider.evaluate(level, center, radius, focus).stream().filter(x -> !backedOff(level, x)).toList());
         if (o == null || o.score() < 0.1f) { cooldown = 40; return; }
         begin(level, o);
     }
@@ -160,6 +160,16 @@ public class Survival {
         current.start(level);
     }
 
+    private final java.util.Map<String, Integer> failStreak = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> failUntil = new java.util.HashMap<>();
+
+    /** Việc này vừa thất bại, đang tạm gác (trừ chuyện ăn uống / chạy trốn lúc nguy cấp). */
+    private boolean backedOff(ServerLevel level, Decider.Option o) {
+        if (o.urgent() && (Decider.isFood(o.reason()) || "SCARED".equals(o.reason()))) return false;
+        Long until = failUntil.get(o.action());
+        return until != null && level.getGameTime() < until;
+    }
+
     private void finish(ServerLevel level) {
         Task t = current;
         current = null;
@@ -169,6 +179,12 @@ public class Survival {
             com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     ({} {} sau {}s)", t.name(), ok ? "xong" : "thất bại", t.ageTicks() / 20);
         // Học: nhớ việc này ở vùng này thành công hay thất bại.
         if (!Set.of("nghỉ", "nhặt đồ", "ăn", "thư giãn").contains(t.name())) ly.mind().learn(t.name(), ly.blockPosition(), ok);
+        // Thất bại thì để việc đó nghỉ một lúc (15 giây, 30 giây, 1 phút... tối đa 5 phút), đừng thử đi thử lại liên tục
+        // như cái máy (vd. hết cỏ để lấy hạt mà cứ đòi làm ruộng).
+        if (!ok && !Set.of("nghỉ", "nhặt đồ", "ăn", "thư giãn", "chạy trốn").contains(t.name())) {
+            int streak = failStreak.merge(t.name(), 1, Integer::sum);
+            failUntil.put(t.name(), level.getGameTime() + Math.min(20L * 60 * 5, 20L * 15 << Math.min(5, streak - 1)));
+        } else if (ok) { failStreak.remove(t.name()); failUntil.remove(t.name()); }
         // Thất bại ngay lập tức nhiều lần liền: có lẽ đang bị kẹt (trong chuồng, trong hố...).
         if (!ok && t.ageTicks() < 20) {
             if (++instantFails >= 3) { instantFails = 0; ly.unstuck(level); }

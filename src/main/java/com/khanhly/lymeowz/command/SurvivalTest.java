@@ -59,6 +59,8 @@ public final class SurvivalTest {
     private static boolean slept, fished, berries;
 
     /** Cho LyMeowzEntity tìm thấy người chơi giả theo UUID. */
+    private static boolean freeOk, comeOk;
+
     public static ServerPlayer fakePlayer(UUID id) {
         return owner != null && OWNER.equals(id) ? owner : null;
     }
@@ -69,6 +71,7 @@ public final class SurvivalTest {
     }
 
     public static void start(MinecraftServer srv, Consumer<String> output) {
+        freeOk = false; comeOk = false;
         server = srv;
         out = output;
         ticks = 0;
@@ -268,6 +271,20 @@ public final class SurvivalTest {
             owner.snapTo(ly.getX() + 2, ly.getY(), ly.getZ());
         }
         if (ticks == 6400) owner.snapTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5);
+        // Cô ấy tự do: bạn bè bỏ chạy xa thì cô ấy thôi theo; gọi "lại đây" từ xa thì cô ấy không tới (chưa đủ thân).
+        if (ticks == 6500) { ly.clearRequest(); log("  <LyTester> đi theo mình"); ly.brain.hear(owner, "đi theo mình"); }
+        if (ticks == 6520) owner.snapTo(ly.getX() + 70, ly.getY(), ly.getZ());
+        if (ticks == 6520 + 20 * 6) {
+            boolean dropped = ly.request() == null;
+            freeOk = dropped && ly.distanceTo(owner) > 40;
+            log((freeOk ? "PASS" : "FAIL") + " bị bỏ xa thì thôi đi theo, không dịch chuyển tới (cách " + (int) ly.distanceTo(owner) + " block)");
+            log("  <LyTester> lại đây");
+            ly.brain.hear(owner, "lại đây");
+            boolean refused = ly.request() == null;
+            comeOk = refused;
+            log((refused ? "PASS" : "FAIL") + " bạn bè gọi từ xa thì không chạy tới");
+            owner.snapTo(center.getX() + 0.5, center.getY(), center.getZ() + 0.5);
+        }
         if (ticks == 20 * 60 * 25 && ly.data() != null && ly.data().blueprintAt != null && !ly.data().structures.containsKey("home")) {
             ServerLevel ow = srv.overworld();
             // Bãi thử chỉ có ~22 cây, không đủ gỗ cho cả căn nhà: tặng một rương nguyên liệu để thử phần xây cho tới khi xong.
@@ -330,8 +347,9 @@ public final class SurvivalTest {
             log("Công trình: " + (ly.data() == null ? "-" : ly.data().structures.keySet()));
             log(com.khanhly.lymeowz.survival.Roadmap.describe(ly, true));
         }
-        int pass = (ok == all.length ? 1 : 0) + (pillarOk ? 1 : 0) + (litter == 0 ? 1 : 0) + (cows >= 2 ? 1 : 0);
-        log("== survival: " + pass + "/4 PASS ==");
+        int pass = (ok == all.length ? 1 : 0) + (pillarOk ? 1 : 0) + (litter == 0 ? 1 : 0) + (cows >= 2 ? 1 : 0)
+                + (freeOk ? 1 : 0) + (comeOk ? 1 : 0);
+        log("== survival: " + pass + "/6 PASS ==");
         if (ly != null) ly.discard();
         if (ly != null) CompanionStore.remove(ly.getUUID());
         server = null;

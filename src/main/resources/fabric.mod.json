@@ -15,6 +15,9 @@
     "main": ["com.khanhly.lymeowz.LyMeowzMod"],
     "client": ["com.khanhly.lymeowz.client.LyMeowzClient"]
   },
+  "mixins": [
+    { "config": "lymeowz.client.mixins.json", "environment": "client" }
+  ],
   "depends": {
     "fabricloader": ">=0.18.4",
     "minecraft": "26.3",

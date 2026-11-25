@@ -106,6 +106,7 @@ public class LyMeowzEntity extends LyMeowzBase {
     @Nullable private LivingEntity lastFightTarget;
     private Vec3 lastStuckCheck = Vec3.ZERO;
     private int stuckCount;
+    private int lastFollowNear = -10000, followFar;
     private boolean nameSynced;
     private boolean dismantling;
     private boolean campRestored;
@@ -130,6 +131,23 @@ public class LyMeowzEntity extends LyMeowzBase {
                 .add(Attributes.ATTACK_DAMAGE, 1.0)
                 .add(Attributes.FOLLOW_RANGE, 64.0)
                 .add(Attributes.STEP_HEIGHT, 0.6);
+    }
+
+    /*
+     * Tốc độ như người chơi. Mob đi với vận tốc ∝ (tốc độ)² (MoveControl đặt cả speed lẫn zza = speed), còn người chơi
+     * thì ∝ tốc độ. Người chơi đi bộ ≈ 0.098, chạy nhanh ≈ 0.127 → mob cần 0.313 khi đi và 0.357 khi chạy.
+     * Trước đây 0.3 × hệ số 1.15–1.4 × chạy (+30%) làm cô ấy lao đi nhanh gấp đôi người chơi chạy nhanh.
+     */
+    private static final double WALK = 0.313, SPRINT = 0.357;
+
+    @Override
+    public void setSpeed(float speed) {
+        var attr = getAttribute(Attributes.MOVEMENT_SPEED);
+        if (attr == null || attr.getValue() <= 0) { super.setSpeed(speed); return; }
+        double mod = speed / attr.getValue();                                     // hệ số của goal / điều hướng
+        double effects = attr.getValue() / (attr.getBaseValue() * (isSprinting() ? 1.3 : 1.0)); // thuốc chậm/nhanh, ...
+        double max = (isSprinting() ? SPRINT : WALK) * effects;
+        super.setSpeed((float) (max * Math.min(1.0, mod)));
     }
 
     @Override
@@ -197,6 +215,18 @@ public class LyMeowzEntity extends LyMeowzBase {
     @Nullable
     public BlockPos getHomePos() {
         return structurePos(data() == null ? null : data().home);
+    }
+
+    /** Vùng đất quen của cô ấy khi chưa có nhà (nơi cô ấy xuất hiện lần đầu). */
+    @Nullable
+    private BlockPos territory() {
+        CompanionStore.Data d = data();
+        if (d == null) return null;
+        if (d.territory == null || !Compat.dimId(level().dimension()).equals(d.territory.dim)) {
+            d.territory = here();
+            CompanionStore.markDirty();
+        }
+        return new BlockPos(d.territory.x, d.territory.y, d.territory.z);
     }
 
     /** Bàn chế tạo mình đặt đang để ngoài (cùng chiều không gian), hoặc null. */
@@ -452,6 +482,8 @@ public class LyMeowzEntity extends LyMeowzBase {
         else tickExpression(level);
 
         if (tickCount % 10 == 0 && !isSleeping() && isInWall()) escapeWall(level);
+        // Người chơi không vừa ngồi thụp vừa chạy: đang di chuyển thì đứng thẳng lên.
+        if (getPose() == Pose.CROUCHING && getDeltaMovement().horizontalDistanceSqr() > 0.004 && !getNavigation().isDone()) setPose(Pose.STANDING);
         if (isSleeping()) { tickSleeping(level); return; }
         if (greetTicks == 0 && exprTicks == 0) manner.tick(level);
         if (!campRestored) {
@@ -498,30 +530,17 @@ public class LyMeowzEntity extends LyMeowzBase {
     private void tickIndependent(ServerLevel level, LyConfig cfg) {
         ServerPlayer anchor = nearestPlayer(level, cfg.noticePlayerRange);
         if (anchor != null && (affinity(anchor) < -30 || bond.hasLeft(anchor))) anchor = null; // tránh người mình ghét / đã bỏ đi
-        BlockPos center;
-        int radius;
-        if (anchor != null) {
-            double dist = distanceTo(anchor);
-            int stay = cfg.stayNearPlayer;
-            double tolerance = BASE_TASKS.contains(survival.currentName()) ? cfg.noticePlayerRange : stay + 14;
-            if (dist > tolerance) {
-                survival.interrupt(level);
-                travelTo(level, anchor.blockPosition(), dist);
-                return;
-            }
-            center = anchor.blockPosition();
-            radius = stay;
-        } else {
-            BlockPos home = getHomePos();
-            center = home != null ? home : blockPosition();
-            radius = cfg.homeWorkRadius;
-            if (home != null && !BASE_TASKS.contains(survival.currentName()) && home.distSqr(blockPosition()) > 96 * 96) {
-                survival.interrupt(level);
-                travelTo(level, home, Math.sqrt(home.distSqr(blockPosition())));
-                return;
-            }
+        // Cô ấy sống quanh nhà / vùng đất của mình, không bám theo người chơi. Người chơi đi đâu kệ người chơi;
+        // muốn gặp thì tự tới, hoặc lúc cô đơn cô ấy tự ghé chơi (việc "trò chuyện"), hoặc bạn thân gọi thì cô ấy tìm đường tới.
+        BlockPos home = getHomePos();
+        BlockPos center = home != null ? home : territory();
+        int radius = cfg.homeWorkRadius;
+        if (center != null && !BASE_TASKS.contains(survival.currentName()) && center.distSqr(blockPosition()) > 96 * 96) {
+            survival.interrupt(level);
+            travelTo(level, center, Math.sqrt(center.distSqr(blockPosition())));
+            return;
         }
-        survival.tick(level, center, radius);
+        survival.tick(level, center == null ? blockPosition() : center, radius);
         maybeChatter(level, anchor);
     }
 
@@ -659,12 +678,23 @@ public class LyMeowzEntity extends LyMeowzBase {
     // ------------------------------------------------------------------ yêu cầu: đi theo / đợi / về nhà
 
     private void tickFollow(ServerLevel level, ServerPlayer p) {
-        boolean other = p.level() != level;
-        double dist = other ? Double.MAX_VALUE : distanceTo(p);
-        if (other || dist > LyConfig.get().teleportDistance) {
-            if (!p.isSpectator() && p.level() instanceof ServerLevel pl) teleportNear(pl, p.blockPosition(), 1, 3);
+        if (p.level() != level) {
+            // Vừa đi qua cổng cùng nhau (cô ấy đứng ngay cạnh lúc bạn bước vào) thì theo sang; không thì thôi.
+            if (tickCount - lastFollowNear < 20 * 6 && !p.isSpectator() && p.level() instanceof ServerLevel pl) {
+                teleportNear(pl, p.blockPosition(), 1, 3);
+                return;
+            }
+            loseFollow(p);
             return;
         }
+        double dist = distanceTo(p);
+        if (dist < 8) lastFollowNear = tickCount;
+        // Cô ấy tự do, không phải thú cưng: bạn chạy xa quá thì đuổi theo một lúc rồi thôi, đi làm việc của mình.
+        // Rất thân (≥ CLOSE) thì chịu khó tìm đường theo xa hơn. Không bao giờ dịch chuyển tới chỗ bạn.
+        double limit = affinity(p) >= CLOSE ? LyConfig.get().followDistanceClose : LyConfig.get().followDistance;
+        if (dist > limit) {
+            if (++followFar > 20 * 2) { loseFollow(p); return; }
+        } else followFar = 0;
         defend(p);
         if (getTarget() != null && getTarget().isAlive()) return;
         if (dist > 10) {
@@ -678,6 +708,16 @@ public class LyMeowzEntity extends LyMeowzBase {
             return;
         }
         survival.tick(level, p.blockPosition(), 10);
+    }
+
+    private void loseFollow(ServerPlayer p) {
+        followFar = 0;
+        clearRequest();
+        getNavigation().stop();
+        setSprinting(false);
+        if (p.level() == level() && p.distanceTo(this) < LyConfig.get().hearingDistance * 2)
+            speak(Speech.Act.LOST_YOU, Speech.Ctx.of().to(p));
+        else mind().event(Mind.Event.OWNER_LEFT, p, null, null);
     }
 
     private void defend(ServerPlayer p) {
@@ -717,7 +757,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         if ("VISIT".equals(r.type)) {
             if (who == null || who.level() != level) { clearRequest(); return; }
             to = who.blockPosition();
-            if (distanceTo(who) > 300) { teleportNear(level, to.offset(20, 0, 20), 2, 6); return; }
+            // Đi bộ tìm đường tới thật, không dịch chuyển.
         } else {
             if (r.at == null) { clearRequest(); return; }
             to = new BlockPos(r.at.x, r.at.y, r.at.z);

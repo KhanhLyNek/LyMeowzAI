@@ -29,7 +29,8 @@ public final class Speech {
         FIRST_MEET, GREET, WELCOME_BACK, START, DONE, FAILED, CRAFTED, DISCOVERY, FEELING, SMALLTALK,
         THANKS, GIFT_THANKS, PRAISED, INSULTED, CONFUSED, HURT_BY_OWNER, FAINT, FOUND_YOU, SEARCHING,
         NIGHT, ACK, REFUSE, OWNER_SLEEP, GO_HOME, ARRIVED_HOME, HOME_SET, STRANGER, HUNGRY, GIVE, GIVE_NOTHING,
-        FIGHT, SCARED, BYE, NOT_CLOSE, WAITING, MET_AT_SPOT, NAMED, SAVED_THANKS, SHY, RELEASED, PLAN
+        FIGHT, SCARED, BYE, NOT_CLOSE, WAITING, MET_AT_SPOT, NAMED, SAVED_THANKS, SHY, RELEASED, PLAN,
+        LOST_YOU, TOO_FAR
     }
 
     /** Nội dung cần nói. */
@@ -216,6 +217,10 @@ public final class Speech {
             case SAVED_THANKS -> v.pick("C-cảm ơn " + you + " đã cứu " + me, "Phù... may có " + you, cap(you) + " vừa cứu " + me + " đó hả");
             case RELEASED -> v.pick("Ừm, " + me + " đi làm việc của " + me + " đây", "Okie, lát gặp lại", cap(me) + " tự lo được mà");
             case PLAN -> c.text;
+            case LOST_YOU -> v.pick(cap(you) + " đi nhanh quá à", "Ơ... " + you + " đi đâu mất rồi", "Đuổi không kịp " + you + " luôn")
+                    + v.pick(". " + cap(me) + " đi làm việc của " + me + " đây", "... thôi " + me + " tự đi chơi vậy", ". Lát gặp nha. Mugyu~");
+            case TOO_FAR -> v.pick("Xa quá à", cap(you) + " ở tít đằng đó", "Hả, tận đó cơ á")
+                    + v.pick("... " + you + " qua đây đi", ", " + me + " đang bận việc ở đây", ". " + cap(you) + " ghé chỗ " + me + " nha");
             case HUNGRY -> v.pick("Đói quá", "Bụng " + me + " kêu rồi", cap(me) + " " + v.degree(100 - ly.getHunger() * 5) + " đói")
                     + "... " + v.pick("Mugyu~", you + " có gì ăn không");
             case GIVE -> v.pick("Đây nè, cầm lấy", "Cho " + you + " hết nè", cap(me) + " đưa " + you + " đồ nè")
