@@ -1,4 +1,4 @@
-# LyMeowz AI 🌸 — bản 5.0 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 6.0 (Minecraft 26.3)
 
 Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
 Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
@@ -71,6 +71,30 @@ Ngày 3
 
 Trời nắng đẹp. Tớ chặt cây, đào đá 4 lần, ra ruộng. Làm được cuốc sắt, khiên. LyTester tặng tớ hoa. Hôm nay gặp LyTester ♥. Vui ghê~
 ```
+
+## Cử chỉ như người chơi thật
+
+Cô ấy không nhìn chằm chằm một chỗ như mob, mà "cầm chuột" như người chơi:
+
+- **Đảo mắt lúc nhanh lúc chậm:** khi thì xoay từ từ ngắm cảnh, khi thì giật nhanh sang một bên. Cô ấy nhìn người chơi,
+  con thú, món đồ rơi, đường chân trời, bầu trời. Đang đi thì phần lớn nhìn đường, thỉnh thoảng liếc sang bên.
+  Đang làm việc (đào, chặt, xây) thì tập trung vào tay.
+- **Đang đi:** thỉnh thoảng nhảy, chạy thì nhảy liên tục như người chơi chạy-nhảy, có lúc đột nhiên dừng lại ngó một cái
+  rồi đi tiếp.
+- **Lúc rảnh thì làm trò ngây ngô:** đứng ngó quanh, xoay vòng tại chỗ, nhảy lò cò, ngồi xuống đứng lên, ngước nhìn trời
+  (chiều tà, trời mưa thì hay nhìn hơn), cúi nhìn chằm chằm xuống chân, đấm gió, lắc đầu, đứng xem con gà đi qua rồi lò dò
+  đi theo, và "nhảy múa" khi vui mà có bạn bên cạnh. Lúc nghỉ thì lững thững đi vài bước chứ không đứng im.
+- **Biết mình bị nhìn:** bạn nhìn thẳng vào cô ấy một lúc thì người lạ bị liếc lại rồi cô ấy quay phắt đi; người quen được
+  nhìn lại, lắc đầu hoặc vẫy tay; bạn thân thì được ngồi xuống đứng lên chào.
+- Tần suất và kiểu trò tùy tính cách (vui vẻ, tò mò, hướng nội) và tâm trạng: chán thì xoay vòng, đấm gió; sợ thì ngó quanh
+  liên tục; buồn thì cúi nhìn xuống đất.
+
+## Đồ ăn dự phòng
+
+- **Hái quả mọng** ở bụi mọng chín (bụi vẫn còn để mọc lại).
+- **Câu cá:** chém mạng nhện lấy tơ, làm cần câu, ra bờ nước quăng cần, ngồi chờ phao (thỉnh thoảng ngó quanh), cá cắn
+  thì giật lên. Cô ấy có lúc giật hụt, có lúc câu được cái ủng cũ, rất hiếm khi được bảng tên hay yên ngựa.
+  Câu cá còn là trò thư giãn lúc cô ấy chán.
 
 ## Biểu cảm
 
@@ -186,7 +210,7 @@ skin như *3D Skin Layers*, *EMF/ETF* cũng nhận ra. Giáp cô ấy mặc cũn
 ## Cài đặt
 
 Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.4 trở lên,
-[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-5.0.0+26.3.jar` vào thư mục `mods/`.
+[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-6.0.0+26.3.jar` vào thư mục `mods/`.
 
 ## Cấu hình: `config/lymeowz.json`
 
@@ -207,12 +231,13 @@ Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.
 ## Build
 
 ```bash
-./gradlew build        # cần Java 25 → build/libs/lymeowzai-5.0.0+26.3.jar
+./gradlew build        # cần Java 25 → build/libs/lymeowzai-6.0.0+26.3.jar
 ```
 
 ## Mã nguồn
 
 ```
+entity/Mannerisms        đảo mắt, nhảy, trò ngây ngô, phản ứng khi bị nhìn
 entity/LyMeowzEntity     thân thể: sống độc lập, đêm ngủ / cắm trại, yêu cầu (đi theo, đợi, về nhà), tự vệ, túi đồ, tên
 mind/                    cảm xúc, trí nhớ, độ thân, học, nhật ký; Decider = Utility AI theo lộ trình
 speech/                  ghép câu, hiểu câu hỏi
@@ -222,7 +247,7 @@ survival/Roadmap         lộ trình sinh tồn
 survival/BlockBreaker    phá block như người chơi (tầm với + tầm nhìn)
 survival/Builder, Camp   đặt block, cắm trại / hộp trú
 survival/task/           chặt cây, đào đá, đào mỏ cầu thang, săn, nung, chế, xây nhà, sửa nhà, ruộng, chuồng, giường, rương,
-                         thư giãn, gom đồ (hoa, cát, sỏi), làm obsidian, dựng cổng Nether...
+                         thư giãn, gom đồ (hoa, cát, sỏi, tơ), câu cá, hái quả, làm obsidian, dựng cổng Nether...
 world/                   lưu dữ liệu, giữ cô ấy luôn có mặt trong thế giới
 ```
 

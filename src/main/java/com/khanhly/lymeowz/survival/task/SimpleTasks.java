@@ -30,13 +30,24 @@ public final class SimpleTasks {
 
     /** Nghỉ ngơi cạnh chủ: hồi năng lượng, bớt sợ. */
     public static class Rest extends Task {
-        public Rest(LyMeowzEntity ly) { super(ly); timeout = 20 * 20; }
+        private int strollIn;
+        public Rest(LyMeowzEntity ly) { super(ly); timeout = 20 * (15 + ly.getRandom().nextInt(20)); strollIn = 40 + ly.getRandom().nextInt(120); }
         @Override public String name() { return "nghỉ"; }
         @Override protected boolean run(ServerLevel level) {
+            // Nghỉ kiểu người chơi: lững thững đi vài bước, đứng ngó (ánh nhìn do Mannerisms lo).
             ServerPlayer o = ly.focusPlayer();
-            if (o != null && o.level() == level && o.distanceTo(ly) > 4 && ly.getNavigation().isDone()) ly.getNavigation().moveTo(o, 0.9);
-            else if (o != null && o.distanceTo(ly) <= 3) ly.getNavigation().stop();
-            if (o != null) ly.getLookControl().setLookAt(o, 20f, 20f);
+            boolean friend = o != null && o.level() == level && ly.affinity(o) >= LyMeowzEntity.FRIEND;
+            if (friend && o.distanceTo(ly) > 7 && ly.getNavigation().isDone()) {
+                ly.getNavigation().moveTo(o, 0.9);
+            } else if (o != null && !friend && o.level() == level && o.distanceTo(ly) < 4 && ly.getNavigation().isDone()) {
+                // Người lạ đứng sát quá: lùi ra một chút.
+                var away = ly.position().subtract(o.position()).normalize().scale(4).add(ly.position());
+                ly.getNavigation().moveTo(away.x, away.y, away.z, 0.8);
+            } else if (--strollIn <= 0 && !ly.manner.holding()) {
+                strollIn = 60 + ly.getRandom().nextInt(160);
+                var to = ly.position().add(ly.getRandom().nextIntBetweenInclusive(-5, 5), 0, ly.getRandom().nextIntBetweenInclusive(-5, 5));
+                ly.getNavigation().moveTo(to.x, to.y, to.z, 0.6 + ly.getRandom().nextFloat() * 0.3);
+            }
             ly.mind().data().fear = Math.max(0, ly.mind().data().fear - 0.3f);
             return true;
         }

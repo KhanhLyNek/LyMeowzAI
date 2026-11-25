@@ -56,7 +56,7 @@ public final class SurvivalTest {
         return server != null;
     }
 
-    private static boolean slept;
+    private static boolean slept, fished, berries;
 
     /** Cho LyMeowzEntity tìm thấy người chơi giả theo UUID. */
     public static ServerPlayer fakePlayer(UUID id) {
@@ -74,6 +74,8 @@ public final class SurvivalTest {
         ticks = 0;
         ate = false;
         slept = false;
+        fished = false;
+        berries = false;
         milestones.clear();
         ServerLevel ow = srv.overworld();
         srv.getCommands().performPrefixedCommand(srv.createCommandSourceStack().withSuppressedOutput(), "time set day");
@@ -106,6 +108,14 @@ public final class SurvivalTest {
             ow.setBlockAndUpdate(f.below(), Blocks.GRASS_BLOCK.defaultBlockState());
             ow.setBlockAndUpdate(f, (i % 2 == 0 ? Blocks.POPPY : Blocks.DANDELION).defaultBlockState());
         }
+        // Ao nhỏ (câu cá), bụi quả mọng, mạng nhện (tơ làm cần câu).
+        for (int dx = 0; dx < 4; dx++) for (int dz = 0; dz < 4; dz++)
+            ow.setBlockAndUpdate(center.offset(-12 + dx, -1, 12 + dz), Blocks.WATER.defaultBlockState());
+        for (int i = 0; i < 4; i++)
+            ow.setBlockAndUpdate(center.offset(15, 0, -12 + i * 2), Blocks.SWEET_BERRY_BUSH.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.SweetBerryBushBlock.AGE, 3));
+        ow.setBlockAndUpdate(center.offset(17, 0, 6), Blocks.COBWEB.defaultBlockState());
+        ow.setBlockAndUpdate(center.offset(17, 0, 8), Blocks.COBWEB.defaultBlockState());
         // Cỏ để nhặt hạt giống.
         for (int i = 0; i < 80; i++) {
             BlockPos g = center.offset(ow.getRandom().nextIntBetweenInclusive(-18, 18), 0, ow.getRandom().nextIntBetweenInclusive(-18, 18));
@@ -205,6 +215,10 @@ public final class SurvivalTest {
         if (ly.isSleeping()) slept = true;
         mark("ngủ trên giường", slept);
         mark("viết nhật ký", !ly.mind().data().diary.isEmpty());
+        if (all.count(Items.COD) + all.count(Items.SALMON) + all.count(Items.COOKED_COD) + all.count(Items.COOKED_SALMON) > 0) fished = true;
+        mark("câu được cá", fished);
+        if (all.count(Items.SWEET_BERRIES) > 0) berries = true;
+        mark("hái quả mọng", berries);
         mark("sửa nhà", ly.data() != null && ly.data().structures.keySet().stream().anyMatch(k -> k.startsWith("deco:")));
         if (ly.getHunger() > lastHunger) ate = true;
         lastHunger = ly.getHunger();

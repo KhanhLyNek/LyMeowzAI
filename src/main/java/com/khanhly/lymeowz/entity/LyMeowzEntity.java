@@ -40,10 +40,8 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.AvoidEntityGoal;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -95,6 +93,8 @@ public class LyMeowzEntity extends LyMeowzBase {
     public final Brain brain = new Brain(this);
     public final Survival survival = new Survival(this);
     public final com.khanhly.lymeowz.bond.Bond bond = new com.khanhly.lymeowz.bond.Bond(this);
+    /** Cử chỉ vụn vặt: đảo mắt, nhảy, ngó quanh, trò ngây ngô. */
+    public final Mannerisms manner = new Mannerisms(this);
     private final Camp camp = new Camp();
 
     @Nullable private LyInventory inventory;
@@ -136,8 +136,6 @@ public class LyMeowzEntity extends LyMeowzBase {
         this.goalSelector.addGoal(1, new AvoidEntityGoal<>(this, Creeper.class, 6.0f, 1.0, 1.3));
         this.goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.15, true));
         this.goalSelector.addGoal(3, new OpenDoorGoal(this, true));
-        this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0f));
-        this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         addMonsterTargetGoal(2, e -> !(e instanceof Creeper) && e.distanceToSqr(this) < 12 * 12 && !isSleeping()
@@ -430,6 +428,7 @@ public class LyMeowzEntity extends LyMeowzBase {
         else tickExpression(level);
 
         if (isSleeping()) { tickSleeping(level); return; }
+        if (greetTicks == 0 && exprTicks == 0) manner.tick(level);
         if (dismantling) {
             survival.tickMaintenance(level);
             if (!camp.dismantle(this, level)) { dismantling = false; nightCamp = false; }

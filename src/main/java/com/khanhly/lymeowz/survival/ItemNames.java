@@ -34,7 +34,9 @@ public final class ItemNames {
             Map.entry("raw_copper", "đồng thô"), Map.entry("dandelion", "hoa bồ công anh"), Map.entry("poppy", "hoa anh túc"),
             Map.entry("cornflower", "hoa xa cúc"), Map.entry("glass", "kính"), Map.entry("sand", "cát"), Map.entry("obsidian", "obsidian"),
             Map.entry("flint", "đá lửa"), Map.entry("flint_and_steel", "bật lửa"), Map.entry("written_book", "sách"),
-            Map.entry("cookie", "bánh quy"));
+            Map.entry("cookie", "bánh quy"), Map.entry("sweet_berries", "quả mọng"), Map.entry("cod", "cá tuyết"),
+            Map.entry("salmon", "cá hồi"), Map.entry("cooked_cod", "cá tuyết nướng"), Map.entry("cooked_salmon", "cá hồi nướng"),
+            Map.entry("fishing_rod", "cần câu"), Map.entry("string", "tơ"), Map.entry("tropical_fish", "cá nhiệt đới"));
 
     public static String of(Item item) {
         String path = BuiltInRegistries.ITEM.getKey(item).getPath();

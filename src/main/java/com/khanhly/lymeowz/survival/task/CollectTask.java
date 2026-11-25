@@ -73,9 +73,10 @@ public class CollectTask extends Task {
                     if (until != null && until > level.getGameTime()) return false;
                     Entity thrower = e.getOwner();
                     if (thrower == null || thrower == ly) {
-                        // Đồ rơi ngay cạnh người chơi là của người đó (họ tự nhặt).
-                        var p = level.getNearestPlayer(e, 4);
-                        return p == null || p.isSpectator();
+                        // Người chơi đang đứng ngay trên đồ thì để họ nhặt; còn lại ai tới trước thì người đó lấy.
+                        var p = level.getNearestPlayer(e, 1.5);
+                        var fake = com.khanhly.lymeowz.command.SurvivalTest.fakeNear(e, 1.5);
+                        return (p == null || p.isSpectator()) && fake == null;
                     }
                     // Người chơi ném đồ về phía cô ấy: quà.
                     return thrower instanceof net.minecraft.world.entity.player.Player && e.distanceToSqr(ly) < 5 * 5

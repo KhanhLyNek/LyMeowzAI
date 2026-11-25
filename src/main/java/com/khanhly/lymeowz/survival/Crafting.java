@@ -38,6 +38,7 @@ public final class Crafting {
     public static final Predicate<ItemStack> WOOL = s -> s.is(ItemTags.WOOL);
     public static final Predicate<ItemStack> WHEAT = s -> s.is(Items.WHEAT);
     public static final Predicate<ItemStack> FLINT = s -> s.is(Items.FLINT);
+    public static final Predicate<ItemStack> STRING = s -> s.is(Items.STRING);
 
     private static final Map<Item, Recipe> RECIPES = new HashMap<>();
 
@@ -93,6 +94,7 @@ public final class Crafting {
         r(Items.BREAD, 1, true, WHEAT, 3);
         r(Items.OAK_SIGN, 3, true, PLANKS, 6, STICK, 1);
         r(Items.FLINT_AND_STEEL, 1, false, IRON, 1, FLINT, 1);
+        r(Items.FISHING_ROD, 1, true, STICK, 3, STRING, 2);
     }
 
     public static boolean known(Item item) {

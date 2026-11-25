@@ -14,6 +14,8 @@ import com.khanhly.lymeowz.survival.task.CraftTask;
 import com.khanhly.lymeowz.survival.task.EatTask;
 import com.khanhly.lymeowz.survival.task.ExploreTask;
 import com.khanhly.lymeowz.survival.task.FarmTask;
+import com.khanhly.lymeowz.survival.task.FishTask;
+import com.khanhly.lymeowz.survival.task.ForageTask;
 import com.khanhly.lymeowz.survival.task.GatherTask;
 import com.khanhly.lymeowz.survival.task.ObsidianTask;
 import com.khanhly.lymeowz.survival.task.PortalTask;
@@ -93,6 +95,8 @@ public class Decider {
             mineCache = pickTier >= 1 ? MineTask.findTarget(ly, level, center, radius, blacklist) : null;
             craftCache = Survival.nextCraft(ly, level, all, stage);
             lavaCache = stage == Roadmap.Stage.NETHER ? nearLava(level) : null;
+            waterCache = FishTask.findWater(ly, level, 24);
+            berryCache = ForageTask.find(ly, level, 20, java.util.Set.of());
         }
 
         // Chạy trốn: nhút nhát + có quái + đang yếu hoặc rất sợ.
@@ -150,6 +154,28 @@ public class Decider {
                         * expect("đi săn") * (1 - fear * 0.5f) + (focus == Survival.Focus.FOOD ? 0.4f : 0);
                 boolean urgent = ly.getHunger() <= 6 && food == 0;
                 out.add(new Option("đi săn", urgent ? Math.max(s, 0.9f) : s, needH > 0.4f ? "HUNGRY" : "FOOD_LOW", urgent, () -> new HuntTask(ly, prey)));
+            }
+        }
+
+        // Đồ ăn dự phòng: hái quả mọng, câu cá.
+        if (berryCache != null && (food < 6 || needH > 0.3f)) {
+            out.add(new Option("hái quả", (0.3f + needH * 0.5f) * expect("hái quả"), "FOOD_LOW", false, () -> new ForageTask(ly)));
+        }
+        if (waterCache != null && !night) {
+            boolean rod = FishTask.hasRod(ly);
+            float hungry = food < 4 ? 0.3f + needH * 0.45f : 0;
+            float relax = Roadmap.has(ly, "house") && m.fear < 30 ? (0.08f + 0.35f * bored) * (0.5f + p.cheerful) : 0;
+            float s = Math.max(hungry, relax) * expect("câu cá");
+            if (s > 0.05f) {
+                if (rod) out.add(new Option("câu cá", s, hungry > relax ? "FOOD_LOW" : "BORED", false, () -> new FishTask(ly, hungry > relax ? 5 : 3)));
+                else if (CraftTask.canMake(ly, level, Items.FISHING_ROD))
+                    out.add(new Option("chế tạo", s * 0.9f, "FOOD_LOW", false, () -> new CraftTask(ly, Items.FISHING_ROD)));
+                else if (all.count(Items.STRING) < 2 && now > gatherAgain) {
+                    // Chưa có dây câu: chém mạng nhện lấy tơ.
+                    BlockPos web = GatherTask.nearest(ly, level, st -> st.is(net.minecraft.world.level.block.Blocks.COBWEB), 32, java.util.Set.of());
+                    if (web != null) out.add(new Option("lấy tơ", s * 0.8f, "FOOD_LOW", false, () -> { gatherAgain = level.getGameTime() + 1200;
+                        return new GatherTask(ly, "lấy tơ", st -> st.is(net.minecraft.world.level.block.Blocks.COBWEB), x -> x.is(Items.STRING), 2, 6, 32); }));
+                }
             }
         }
 
@@ -400,7 +426,7 @@ public class Decider {
         }
     }
 
-    private BlockPos portalSite, lavaCache;
+    private BlockPos portalSite, lavaCache, waterCache, berryCache;
 
     private Mind mind() {
         return ly.mind();
