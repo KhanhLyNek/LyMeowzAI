@@ -53,7 +53,8 @@ Cô gái dũng cảm và chăm chỉ thì có khi thức làm đêm.
 
 **Bản năng sinh tồn là trên hết:** đói mà trong túi không còn gì ăn thì mọi việc khác (xây nhà, đào đá…) bị gác lại.
 Cô ấy đi săn xa hơn, hái quả, câu cá, về rương lấy đồ ăn; quanh đây hết thú thì đi về chỗ từng thấy đàn thú hoặc đi
-vùng mới tìm. Đói lả giữa đêm cô ấy cũng dậy đi kiếm ăn chứ không nằm chịu mất máu.
+vùng mới tìm. Đang ngủ mà đói cồn cào thì cô ấy dậy ăn (trong túi hết thì ra rương lấy, rương cũng hết thì đi săn),
+rồi mới ngủ tiếp, chứ không nằm chịu mất máu. Bị kẹt trong khối (ngạt) thì cô ấy đào ra như người chơi.
 
 **Bàn chế tạo:** đã đứng ở bàn thì cô ấy làm luôn **một lượt** mọi thứ đang cần (cuốc, rìu, kiếm…), không đặt bàn →
 làm một món → đập bàn → đặt lại nữa. Bàn đặt ở chỗ làm việc thì để đó dùng tiếp; chỉ khi **đi xa** (khám phá, đi tìm đất
@@ -77,6 +78,9 @@ WorldEdit / Litematica):
   thường thay nhau. Đồ trang trí (hoa, đèn lồng, thảm, giá sách, giường…) không bắt buộc: thiếu thì để sau, xây xong
   phần chính rồi mới **trang trí dần**.
 - Cao quá tầm với thì cô ấy **kê cột** nhảy lên đặt block như người chơi, xong thì đập cột xuống.
+- Đặt xong gần hết (sót vài khối khó với tới) là coi như có nhà; mấy khối sót và đồ trang trí sẽ được đặt nốt ở những
+  lần "trang trí nhà" sau.
+- Không trồng cây con, không cắm đuốc trong khu nhà đang xây; đuốc người chơi cắm trong nhà thì cô ấy để nguyên.
 - Xây xong thì đó là nhà của cô ấy: tối về đây, nghỉ ngơi ở đây, sự kiện "đứng trước cửa nhà" diễn ra trước cửa căn này.
 
 Nhà kiểu cũ (hộp 5×5 của bản trước) vẫn được giữ và sửa sang như dưới đây.

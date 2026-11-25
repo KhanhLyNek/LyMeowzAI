@@ -148,7 +148,7 @@ public final class SimpleTasks {
                 for (int dy = -2; dy <= 2; dy++) {
                     BlockPos q = p.above(dy);
                     if (!level.getBlockState(q).isAir() || !level.getBlockState(q.below()).is(BlockTags.DIRT)) continue;
-                    if (!level.canSeeSky(q)) continue;
+                    if (!level.canSeeSky(q) || ly.isProtected(q)) continue; // không trồng cây trong / sát nhà, ruộng, chỗ đang xây
                     boolean crowded = false;
                     for (BlockPos n : BlockPos.betweenClosed(q.offset(-2, -1, -2), q.offset(2, 3, 2))) {
                         BlockState st = level.getBlockState(n);
@@ -203,7 +203,7 @@ public final class SimpleTasks {
                 for (int dy = -1; dy <= 1; dy++) {
                     BlockPos q = p.above(dy);
                     if (!level.getBlockState(q).isAir() || !level.getBlockState(q.below()).isFaceSturdy(level, q.below(), Direction.UP)) continue;
-                    if (level.getBrightness(LightLayer.BLOCK, q) > 6) continue;
+                    if (level.getBrightness(LightLayer.BLOCK, q) > 6 || ly.ownsBlock(q)) continue;
                     if (ly.focusPlayer() != null && ly.focusPlayer().blockPosition().closerThan(q, 2)) continue;
                     return q.immutable();
                 }

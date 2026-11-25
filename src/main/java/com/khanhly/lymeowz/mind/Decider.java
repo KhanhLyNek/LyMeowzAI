@@ -211,12 +211,14 @@ public class Decider {
             stoneTarget = Math.max(stoneTarget, cobbleNow + Math.min(64, (int) Math.ceil(houseNeed.getOrDefault(Materials.Mat.STONE, 0f))));
         }
         int coal = all.count(ItemTags.COALS);
-        if (pickTier >= 1 && (cobble < stoneTarget || coal < 6)) {
-            float need = Math.max(1 - (float) cobble / stoneTarget, coal < 6 ? 0.4f : 0);
+        // Thiếu than thì đào đá tìm than, nhưng túi đã ních đá rồi thì thôi (khỏi đào trụi cả quả đồi).
+        boolean wantCoal = coal < 6 && cobble < 96;
+        if (pickTier >= 1 && (cobble < stoneTarget || wantCoal)) {
+            float need = Math.max(1 - (float) cobble / stoneTarget, wantCoal ? 0.4f : 0);
             float s = (0.25f + 0.35f * need) * (0.6f + 0.4f * p.diligent) * (1 - 0.4f * fear) * expect("đào đá")
                     + (focus == Survival.Focus.STONE ? 0.4f : 0);
             if (mineCache != null) {
-                out.add(new Option("đào đá", s, coal < 6 ? "ORE" : "STONE_LOW", false,
+                out.add(new Option("đào đá", s, wantCoal ? "ORE" : "STONE_LOW", false,
                         () -> { invalidate(); return new MineTask(ly, 12, center, radius, blacklist); }));
             } else if (mind.nearest(Mind.PlaceKind.STONE, ly.blockPosition()) != null
                     && ly.blockPosition().distSqr(placePos(mind.nearest(Mind.PlaceKind.STONE, ly.blockPosition()))) > 12 * 12) {
@@ -510,8 +512,8 @@ public class Decider {
         boolean wantNew = !hasHome ? stage.ordinal() >= Roadmap.Stage.SHELTER.ordinal()
                 : stage.ordinal() >= Roadmap.Stage.IRON.ordinal() && d.builtHouses.size() < plans.size();
         // Nhà đầu tiên: sống ngoài trời khám phá, tích gỗ đá một thời gian (~5 phút) rồi mới đi chọn đất.
-        if (wantNew && !hasHome && d.stage == Roadmap.Stage.SHELTER.ordinal()
-                && level.getGameTime() - d.stageSince < 6000 && Materials.amount(all, Materials.Mat.WOOD) < 96) wantNew = false;
+        if (wantNew && !hasHome && d.shelterSince == 0) { d.shelterSince = level.getGameTime(); com.khanhly.lymeowz.world.CompanionStore.markDirty(); }
+        if (wantNew && !hasHome && level.getGameTime() - d.shelterSince < 6000 && Materials.amount(all, Materials.Mat.WOOD) < 96) wantNew = false;
         if (wantNew && d.blueprint == null && !night) {
             var next = plans.get(Math.min(d.builtHouses.size(), plans.size() - 1));
             if (!d.builtHouses.contains(next.name)) {

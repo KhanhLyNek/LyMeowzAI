@@ -104,7 +104,10 @@ public class BlueprintTask extends Task {
             for (BlockPos rel : bp.air) {
                 BlockPos w = world(rel);
                 BlockState st = level.getBlockState(w);
-                if (!st.isAir() && st.getFluidState().isEmpty() && !ly.ownsBlockOtherThan(w, origin)) c.add(w);
+                if (st.isAir() || !st.getFluidState().isEmpty() || ly.ownsBlockOtherThan(w, origin)) continue;
+                // Đuốc, nến... (không có va chạm, không phải cây con) trong nhà thì cứ để.
+                if (!st.canBeReplaced() && st.getCollisionShape(level, w).isEmpty() && !st.is(net.minecraft.tags.BlockTags.SAPLINGS)) continue;
+                c.add(w);
             }
             // Từ trên xuống (chặt ngọn cây trước), rồi gần trước xa sau.
             c.sort(Comparator.comparingInt((BlockPos p) -> -p.getY()));
@@ -113,8 +116,6 @@ public class BlueprintTask extends Task {
         // Thứ tự xây: nền đất, khối đặc từ dưới lên, rồi các thứ khác từ dưới lên.
         List<Blueprint.Piece> solid = new ArrayList<>(), detail = new ArrayList<>();
         for (Blueprint.Piece p : bp.pieces) {
-            boolean opt = Materials.optional(p.state());
-            if (decorOnly && !opt) continue;
             if (p.pos().getY() == 0 || p.state().isCollisionShapeFullBlock(level, world(p.pos()))) solid.add(p);
             else detail.add(p);
         }
@@ -434,11 +435,14 @@ public class BlueprintTask extends Task {
         if (d == null) return;
         String dim = Compat.dimId(level.dimension());
         if (!decorOnly) {
-            // Còn thiếu khối chính nào không?
+            // Còn thiếu khối chính nào không? (sót vài khối khó với tới thì vẫn ở được, lần trang trí sau sẽ đặt nốt)
+            int total = 0, left = 0;
             for (Blueprint.Piece p : bp.pieces) {
                 if (Materials.optional(p.state()) || p.pos().getY() == 0) continue;
-                if (!same(level.getBlockState(world(p.pos())), p.state())) return;
+                total++;
+                if (!same(level.getBlockState(world(p.pos())), p.state())) left++;
             }
+            if (left > Math.max(4, total / 50)) return;
             if (!d.builtHouses.contains(bp.name)) d.builtHouses.add(bp.name);
             d.structures.put("home", new CompanionStore.Spot(dim, origin.getX(), origin.getY(), origin.getZ()));
             d.homeBlueprint = bp.name;

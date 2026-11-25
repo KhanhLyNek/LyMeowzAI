@@ -83,6 +83,8 @@ public final class CompanionStore {
         /** Giai đoạn trong lộ trình sinh tồn, và từ lúc nào (game time). */
         public int stage = -1;
         public long stageSince;
+        /** Lúc lần đầu tới bước dựng nhà (không bị đặt lại khi lỡ gãy kiếm, gãy cuốc). */
+        public long shelterSince;
         /** Các giai đoạn đã tạm bỏ qua vì kẹt quá lâu (vẫn làm tiếp khi có điều kiện). */
         public Set<String> skipped = new HashSet<>();
     }

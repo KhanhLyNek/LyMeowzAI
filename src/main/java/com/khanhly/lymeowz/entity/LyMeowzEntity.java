@@ -589,8 +589,8 @@ public class LyMeowzEntity extends LyMeowzBase {
             return false;
         }
         // Bản năng sinh tồn: đói lả mà không còn gì ăn thì phải đi kiếm ăn, đêm cũng vậy (ngủ đói là mất máu).
-        if (getHunger() <= 6 && inventoryWithHand().count(s -> Tools.edible(s, 4)) == 0
-                && (structure("chest") == null || !com.khanhly.lymeowz.survival.task.StoreTask.hasFood(level, structure("chest")))) {
+        // (Rương nhà còn đồ ăn thì cũng phải dậy đi lấy: nằm trên giường không tự no được.)
+        if (getHunger() <= 6 && inventoryWithHand().count(s -> Tools.edible(s, 4)) == 0) {
             if (nightCamp) { nightCamp = false; if (camp.enclosed()) dismantling = true; }
             return false;
         }
