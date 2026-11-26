@@ -89,7 +89,11 @@ public class Mind {
         if (d.social < 15 && d.lifeTicks % 6000 == 0) event(Event.LONELY, null, null, null);
 
         // Nhớ những vùng đã đi qua.
-        d.explored.add(cellKey(ly.blockPosition()));
+        if (d.explored.add(cellKey(ly.blockPosition())) && d.explored.size() > 4096) {
+            // Nhớ tối đa 4096 ô 32×32 (một vùng ~2 km × 2 km); quên những ô đi qua lâu nhất.
+            var it = d.explored.iterator();
+            for (int i = 0; i < 256 && it.hasNext(); i++) { it.next(); it.remove(); }
+        }
         if (++perceptionTimer % 10 == 0) perceive(level);
     }
 

@@ -58,11 +58,16 @@ public class HuntTask extends Task {
 
     /** {@code desperate}: sắp chết đói – săn cả thú trong chuồng, chỉ chừa lại 1 con mỗi loài. */
     public static Animal find(LyMeowzEntity ly, ServerLevel level, int radius, boolean desperate) {
-        AABB box = ly.getBoundingBox().inflate(radius, 6, radius);
-        List<Animal> all = level.getEntitiesOfClass(Animal.class, box, a -> a.isAlive() && GAME.contains(a.getType()));
+        // Đếm cả vùng rộng (64 ô) để chừa giống cho cả vùng, không chỉ mấy con đang đứng gần.
+        int wide = Math.max(radius, 64);
+        List<Animal> all = level.getEntitiesOfClass(Animal.class, ly.getBoundingBox().inflate(wide, 12, wide),
+                a -> a.isAlive() && GAME.contains(a.getType()));
+        java.util.Map<net.minecraft.world.entity.EntityType<?>, Integer> count = new java.util.HashMap<>();
+        for (Animal a : all) if (!a.isBaby()) count.merge(a.getType(), 1, Integer::sum);
+        double r2 = (double) radius * radius;
         return all.stream()
-                .filter(a -> !a.isBaby())
-                .filter(a -> all.stream().filter(o -> o.getType() == a.getType()).count() >= (desperate ? 2 : 3)) // chừa lại giống
+                .filter(a -> !a.isBaby() && a.distanceToSqr(ly) <= r2 && Math.abs(a.getY() - ly.getY()) <= 6)
+                .filter(a -> count.getOrDefault(a.getType(), 0) >= (desperate ? 2 : 3)) // chừa lại giống
                 .filter(a -> desperate || !ly.isProtected(a.blockPosition()))                  // không săn vật nuôi trong nhà
                 .min(Comparator.comparingDouble(a -> a.distanceToSqr(ly)))
                 .orElse(null);

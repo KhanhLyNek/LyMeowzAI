@@ -1,5 +1,7 @@
 package com.khanhly.lymeowz.mind;
 
+import com.khanhly.lymeowz.util.Perf;
+
 import com.khanhly.lymeowz.compat.Compat;
 import com.khanhly.lymeowz.entity.LyMeowzEntity;
 import com.khanhly.lymeowz.survival.LyInventory;
@@ -76,6 +78,53 @@ public class Decider {
         cacheTime = -1000;
     }
 
+    /**
+     * Chỉ những việc gấp (chạy trốn, đói lả) — gọi mỗi giây khi đang bận việc khác. Nhẹ hơn {@link #evaluate} nhiều:
+     * không dò cây, đá, chỗ làm ruộng... (trước đây cứ mỗi giây lại chấm điểm lại toàn bộ mọi việc).
+     */
+    private long grassCheck = Long.MIN_VALUE / 2;
+    private boolean grassNear;
+
+    public List<Option> urgent(ServerLevel level, int radius) {
+        List<Option> out = new ArrayList<>();
+        MindData m = ly.mind().data();
+        Personality p = ly.mind().p();
+        Mob threat = SimpleTasks.Flee.nearestThreat(ly, level);
+        if (threat != null && (ly.getHealth() < 7 || (p.brave < 0.5f && m.fear > 70)))
+            out.add(new Option("chạy trốn", 0.95f, "SCARED", true, () -> new SimpleTasks.Flee(ly, threat)));
+        if (ly.getHunger() > 6) return out;
+        LyInventory all = ly.inventoryWithHand();
+        if (all.count(s -> Tools.edible(s, ly.getHunger())) > 0) {
+            out.add(new Option("ăn", 0.45f + (20 - ly.getHunger()) / 20f * 0.6f, "HUNGRY", true, () -> new EatTask(ly)));
+            return out;
+        }
+        BlockPos chestPos = ly.structure("chest");
+        if (chestPos != null && chestPos.distSqr(ly.blockPosition()) < 96 * 96 && StoreTask.hasFood(level, chestPos)) {
+            out.add(new Option("cất đồ", 0.92f, "HUNGRY", true, () -> new StoreTask(ly, chestPos)));
+            return out;
+        }
+        int food = all.count(Tools::isGoodFood) + all.count(Tools::isRawMeat);
+        // Thịt vừa rơi còn nằm dưới đất: nhặt trước đã (lần chọn việc thường sẽ làm), đừng giết thêm con nữa.
+        ItemEntity drop = CollectTask.find(ly, level, 8);
+        if (drop != null && Tools.isFood(drop.getItem())) return out;
+        if (food == 0) {
+            Animal prey = HuntTask.find(ly, level, Math.max(radius, 40), true);
+            BlockPos pen = ly.structure("pen");
+            if (prey != null && (pen == null || !RanchTask.inPen(pen, prey))) {
+                out.add(new Option("đi săn", 0.9f, "HUNGRY", true, () -> new HuntTask(ly, prey)));
+                return out;
+            }
+        }
+        if (food == 0 && !"khám phá".equals(ly.survival.currentName())) {
+            // Quanh đây hết cái ăn: đi tới chỗ từng thấy đàn thú, hoặc đi vùng mới tìm.
+            var animals = ly.mind().nearest(Mind.PlaceKind.ANIMALS, ly.blockPosition());
+            BlockPos to = animals != null && placePos(animals).distSqr(ly.blockPosition()) > 16 * 16 ? placePos(animals)
+                    : ExploreTask.pickTarget(ly, level, ly.blockPosition());
+            if (to != null) out.add(new Option("khám phá", 0.93f, "HUNGRY", true, () -> new ExploreTask(ly, to)));
+        }
+        return out;
+    }
+
     public List<Option> evaluate(ServerLevel level, BlockPos center, int radius, Survival.Focus focus) {
         Mind mind = ly.mind();
         MindData m = mind.data();
@@ -94,13 +143,22 @@ public class Decider {
         long now = level.getGameTime();
         if (now - cacheTime > 100) {
             cacheTime = now;
+            long q = Perf.t();
             treeCache = ChopTreeTask.find(ly, level, center, radius, blacklist);
+            Perf.add("· dò cây", q); q = Perf.t();
             mineCache = pickTier >= 1 ? MineTask.findTarget(ly, level, center, radius, blacklist) : null;
+            Perf.add("· dò đá/quặng", q); q = Perf.t();
             craftCache = Survival.nextCraft(ly, level, all, stage);
+            Perf.add("· tính đồ cần chế", q); q = Perf.t();
             lavaCache = stage == Roadmap.Stage.NETHER ? nearLava(level) : null;
             waterCache = FishTask.findWater(ly, level, 24);
+            Perf.add("· dò nước/dung nham", q);
+            long pt = com.khanhly.lymeowz.util.Perf.t();
             houseNeed = houseShortfall(level);
+            com.khanhly.lymeowz.util.Perf.add("tính nguyên liệu nhà", pt);
+            q = Perf.t();
             berryCache = ForageTask.find(ly, level, 20, java.util.Set.of());
+            Perf.add("· dò quả mọng", q);
         }
 
         // Chạy trốn: nhút nhát + có quái + đang yếu hoặc rất sợ.
@@ -124,7 +182,9 @@ public class Decider {
         }
 
         // Nhặt đồ rơi.
+        long q0 = Perf.t();
         ItemEntity drop = CollectTask.find(ly, level, 8);
+        Perf.add("· dò đồ rơi", q0);
         if (drop != null) out.add(new Option("nhặt đồ", 0.5f, null, false, () -> new CollectTask(ly, drop)));
 
         // Chế đồ nâng cấp.
@@ -256,15 +316,23 @@ public class Decider {
         boolean freshSites = siteTime == now;
 
         // Nhà theo bản vẽ: tìm đất → gom đồ → xây dần; ở ổn rồi thì xây tiếp nhà lớn hơn, trang trí dần.
+        long qh = Perf.t();
         houseOptions(level, all, out, p, night, stage);
+        Perf.add("· các việc nhà cửa", qh);
         BlockPos house = ly.structure("home") != null ? ly.structure("home") : ly.structure("house");
         boolean legacyHouse = ly.structure("home") == null && ly.structure("house") != null;
         if (homeNear && house != null) {
             // Ruộng.
             BlockPos farm = ly.structure("farm");
             if (farm == null && stage.ordinal() >= Roadmap.Stage.FARM.ordinal() && FarmTask.hasHoe(ly)) {
-                if (farmSite == null || freshSites) farmSite = FarmTask.findSite(ly, level, home);
-                if (farmSite != null) {
+                if (farmSite == null || freshSites) { long q = Perf.t(); farmSite = FarmTask.findSite(ly, level, home); Perf.add("· tìm chỗ làm ruộng", q); }
+                // Chưa có hạt giống mà quanh đây cũng chẳng còn bụi cỏ nào: khoan làm ruộng (đi đâu đó có cỏ đã).
+                boolean seedsOk = FarmTask.seeds(ly) >= 4;
+                if (!seedsOk) {
+                    if (now - grassCheck >= 600) { grassCheck = now; grassNear = FarmTask.findGrass(ly, level, 48) != null; }
+                    seedsOk = grassNear;
+                }
+                if (farmSite != null && seedsOk) {
                     BlockPos site = farmSite;
                     out.add(new Option("làm ruộng", 0.5f + 0.2f * p.builder + 0.1f * p.diligent, "FOOD_LOW", false,
                             () -> { farmSite = null; return new FarmTask(ly, site, false); }));
@@ -281,7 +349,7 @@ public class Decider {
                         || (ly.structure("plan:pen") != null && all.count(Items.OAK_FENCE) > 0))) {
                 BlockPos plan = ly.structure("plan:pen");
                 if (plan != null) penSite = plan;
-                else if (penSite == null || freshSites) penSite = PenTask.findSite(ly, level, home, farm);
+                else if (penSite == null || freshSites) { long q = Perf.t(); penSite = PenTask.findSite(ly, level, home, farm); Perf.add("· tìm chỗ làm chuồng", q); }
                 if (penSite != null) {
                     BlockPos site = penSite;
                     out.add(new Option("làm chuồng", 0.5f + 0.25f * p.builder, "BUILDER", false, () -> { penSite = null; return new PenTask(ly, site); }));
@@ -447,7 +515,7 @@ public class Decider {
             }
         }
         if (PortalTask.canStart(ly) && home != null) {
-            if (portalSite == null || portalSite.distSqr(home) > 20 * 20) portalSite = PortalTask.findSite(ly, level, home);
+            if (portalSite == null || portalSite.distSqr(home) > 20 * 20) { long q = Perf.t(); portalSite = PortalTask.findSite(ly, level, home); Perf.add("· tìm chỗ dựng cổng", q); }
             if (portalSite != null) {
                 BlockPos site = portalSite;
                 out.add(new Option("dựng cổng Nether", base + 0.25f, "BUILDER", false, () -> new PortalTask(ly, site)));

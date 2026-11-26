@@ -177,6 +177,24 @@ public final class SelfTest {
             for (LyMeowzEntity.Expr x : LyMeowzEntity.Expr.values()) e.express(x);
             c.check("biểu cảm", true, "");
         }));
+        steps.add(new Step(0, "dò khối nhanh", c -> {
+            LyMeowzEntity e = c.ly();
+            if (e == null) return;
+            BlockPos gold = e.blockPosition().offset(9, 1, -7);
+            ow.setBlockAndUpdate(gold, net.minecraft.world.level.block.Blocks.GOLD_BLOCK.defaultBlockState());
+            BlockPos found = e.findBlockNear(ow, net.minecraft.world.level.block.Blocks.GOLD_BLOCK, 12);
+            long t0 = System.nanoTime();
+            BlockPos far = com.khanhly.lymeowz.util.BlockScan.nearest(ow, e.blockPosition(), e.blockPosition().offset(-48, -3, -48),
+                    e.blockPosition().offset(48, 3, 48), st -> st.is(net.minecraft.tags.BlockTags.LOGS), p -> true);
+            long t1 = System.nanoTime();
+            int brute = 0;
+            for (BlockPos p : BlockPos.betweenClosed(e.blockPosition().offset(-48, -3, -48), e.blockPosition().offset(48, 3, 48)))
+                if (ow.isLoaded(p) && ow.getBlockState(p).is(net.minecraft.tags.BlockTags.LOGS)) brute++;
+            long t2 = System.nanoTime();
+            ow.setBlockAndUpdate(gold, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+            c.check("dò khối theo khúc chunk", gold.equals(found),
+                    String.format("tìm gỗ bán kính 48: %.2f ms (dò từng ô kiểu cũ: %.2f ms, %d ô gỗ)", (t1 - t0) / 1e6, (t2 - t1) / 1e6, brute));
+        }));
         steps.add(new Step(0, "tốc độ như người chơi + bảng Tab + quái", c -> {
             LyMeowzEntity e = c.ly();
             if (e == null) return;

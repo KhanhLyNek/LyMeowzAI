@@ -110,21 +110,16 @@ public class ChopTreeTask extends Task {
     /** Cây tự nhiên gần nhất (gốc + các khúc gỗ), hoặc null. */
     public static ChopTreeTask find(LyMeowzEntity ly, ServerLevel level, BlockPos center, int radius, Set<BlockPos> blacklist) {
         BlockPos feet = ly.blockPosition();
-        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
         List<BlockPos> candidates = new ArrayList<>();
-        for (int dx = -radius; dx <= radius; dx++) for (int dz = -radius; dz <= radius; dz++) {
-            int x = center.getX() + dx, z = center.getZ() + dz;
-            for (int y = feet.getY() - 3; y <= feet.getY() + 3; y++) {
-                m.set(x, y, z);
-                if (!level.isLoaded(m)) continue;
-                BlockState st = level.getBlockState(m);
-                if (!st.is(BlockTags.LOGS)) continue;
-                if (level.getBlockState(m.below()).is(BlockTags.LOGS)) continue; // không phải gốc
-                if (!level.getBlockState(m.below()).is(BlockTags.DIRT)) continue; // gốc phải mọc trên đất
-                if (blacklist.contains(m)) continue;
-                candidates.add(m.immutable());
-            }
-        }
+        com.khanhly.lymeowz.util.BlockScan.forEach(level,
+                new BlockPos(center.getX() - radius, feet.getY() - 3, center.getZ() - radius),
+                new BlockPos(center.getX() + radius, feet.getY() + 3, center.getZ() + radius),
+                st -> st.is(BlockTags.LOGS), (m, st) -> {
+                    BlockState below = level.getBlockState(m.below());
+                    // gốc cây: bên dưới không phải gỗ mà là đất
+                    if (!below.is(BlockTags.LOGS) && below.is(BlockTags.DIRT) && !blacklist.contains(m)) candidates.add(m.immutable());
+                    return true;
+                });
         candidates.sort(Comparator.comparingDouble(p -> p.distSqr(feet)));
         for (BlockPos base : candidates) {
             List<BlockPos> tree = treeLogs(level, base);

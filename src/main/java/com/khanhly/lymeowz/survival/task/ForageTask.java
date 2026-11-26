@@ -36,14 +36,8 @@ public class ForageTask extends Task {
 
     public static BlockPos find(LyMeowzEntity ly, ServerLevel level, int r, Set<BlockPos> skip) {
         BlockPos c = ly.blockPosition();
-        BlockPos best = null;
-        double bd = 1e9;
-        for (BlockPos p : BlockPos.betweenClosed(c.offset(-r, -3, -r), c.offset(r, 3, r))) {
-            if (!ripe(level.getBlockState(p)) || skip.contains(p)) continue;
-            double d = p.distSqr(c);
-            if (d < bd) { bd = d; best = p.immutable(); }
-        }
-        return best;
+        return com.khanhly.lymeowz.util.BlockScan.nearest(level, c, c.offset(-r, -3, -r), c.offset(r, 3, r), ForageTask::ripe,
+                p -> !skip.contains(p));
     }
 
     @Override

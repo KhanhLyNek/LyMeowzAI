@@ -26,7 +26,16 @@ public abstract class LyMeowzBase extends PathfinderMob {
     @Override
     protected void customServerAiStep(ServerLevel level) {
         super.customServerAiStep(level);
+        long t = com.khanhly.lymeowz.util.Perf.t();
         lyServerTick(level);
+        com.khanhly.lymeowz.util.Perf.add("cô ấy suy nghĩ (tổng)", t);
+    }
+
+    @Override
+    public void tick() {
+        long t = com.khanhly.lymeowz.util.Perf.t();
+        super.tick();
+        com.khanhly.lymeowz.util.Perf.add("entity tick (cả vật lý, đường đi)", t);
     }
 
     @Override

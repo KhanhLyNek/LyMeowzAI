@@ -55,7 +55,7 @@ public class FindHomeTask extends Task {
     @Override
     public void start(ServerLevel level) {
         if (nearHome || goodBiome(level, ly.blockPosition())) { phase = 2; return; }
-        var found = level.findClosestBiome3d(h -> BIOMES.stream().anyMatch(h::is), ly.blockPosition(), 1600, 32, 64);
+        var found = level.findClosestBiome3d(h -> BIOMES.stream().anyMatch(h::is), ly.blockPosition(), 1600, 48, 64); // bước 48 ô: biome rộng cả trăm ô, dò thưa cho đỡ khựng server
         if (found == null) { phase = 2; return; } // quanh đây không có: đành chọn chỗ tốt nhất tại đây
         dest = found.getFirst();
         CompanionStore.Data d = ly.data();

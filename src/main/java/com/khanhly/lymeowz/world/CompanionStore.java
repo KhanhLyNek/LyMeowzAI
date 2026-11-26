@@ -97,7 +97,7 @@ public final class CompanionStore {
         Set<String> retired = new HashSet<>();
     }
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create(); // gọn, không thụt lề: tệp nhỏ, ghi nhanh
     private static FileFormat data = new FileFormat();
     @Nullable private static Path file;
     private static boolean dirty;
@@ -129,18 +129,38 @@ public final class CompanionStore {
         dirty = false;
     }
 
+    /** Lưu ngay (lúc tắt server). */
     public static void save() {
         if (!dirty || file == null) return;
+        String json = GSON.toJson(data);
+        dirty = false;
+        write(file, json);
+    }
+
+    /** Lưu định kỳ: dựng JSON trên luồng chính (nhanh), còn ghi đĩa thì để luồng phụ làm — server không phải chờ ổ cứng. */
+    public static void saveAsync() {
+        if (!dirty || file == null) return;
+        String json = GSON.toJson(data);
+        dirty = false;
+        Path f = file;
+        IO.execute(() -> write(f, json));
+    }
+
+    private static final java.util.concurrent.ExecutorService IO = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "LyMeowz-save");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+
+    private static synchronized void write(Path f, String json) {
         try {
-            Files.createDirectories(file.getParent());
-            Path tmp = file.resolveSibling("lymeowz.json.tmp");
-            try (Writer w = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
-                GSON.toJson(data, w);
-            }
-            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            dirty = false;
+            Files.createDirectories(f.getParent());
+            Path tmp = f.resolveSibling("lymeowz.json.tmp");
+            Files.writeString(tmp, json, StandardCharsets.UTF_8);
+            Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (Exception e) {
-            LyMeowzMod.LOGGER.error("Không lưu được {}", file, e);
+            LyMeowzMod.LOGGER.error("Không lưu được {}", f, e);
         }
     }
 

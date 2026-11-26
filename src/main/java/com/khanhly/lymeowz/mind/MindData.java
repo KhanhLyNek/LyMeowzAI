@@ -33,7 +33,7 @@ public class MindData {
     /** Học: kết quả từng loại việc ở từng vùng (vùng 64×64 block). */
     public Map<String, Stat> learned = new HashMap<>();
     /** Các vùng 32×32 đã đi qua (để khám phá chỗ mới). */
-    public Set<Long> explored = new HashSet<>();
+    public Set<Long> explored = new java.util.LinkedHashSet<>();
     public long lifeTicks;
     /** Việc đã làm xong trong ngày (Minecraft) hiện tại: việc → số lần. */
     public Map<String, Integer> today = new HashMap<>();

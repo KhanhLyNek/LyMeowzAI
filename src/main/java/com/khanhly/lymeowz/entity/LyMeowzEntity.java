@@ -2,6 +2,7 @@ package com.khanhly.lymeowz.entity;
 
 import com.khanhly.lymeowz.chat.Brain;
 import com.khanhly.lymeowz.compat.Compat;
+import com.khanhly.lymeowz.util.Perf;
 import com.khanhly.lymeowz.compat.LyMeowzBase;
 import com.khanhly.lymeowz.config.LyConfig;
 import com.khanhly.lymeowz.mind.Mind;
@@ -110,6 +111,7 @@ public class LyMeowzEntity extends LyMeowzBase {
     private boolean nameSynced;
     private boolean dismantling;
     private boolean campRestored;
+    private long lastChunk = Long.MIN_VALUE;
     private int wakeToEat;
     private int greetTicks;
     private final Map<UUID, Long> lastNear = new HashMap<>();
@@ -129,7 +131,7 @@ public class LyMeowzEntity extends LyMeowzBase {
                 .add(Attributes.MAX_HEALTH, 20.0)
                 .add(Attributes.MOVEMENT_SPEED, 0.3)
                 .add(Attributes.ATTACK_DAMAGE, 1.0)
-                .add(Attributes.FOLLOW_RANGE, 64.0)
+                .add(Attributes.FOLLOW_RANGE, 48.0) // tầm tìm đường: đủ cho vùng làm việc 48 ô, đỡ tốn công tìm đường xa vô ích
                 .add(Attributes.STEP_HEIGHT, 0.6);
     }
 
@@ -462,9 +464,14 @@ public class LyMeowzEntity extends LyMeowzBase {
             syncName(level, d);
         }
         // Như một người chơi thật: thế giới quanh cô ấy luôn chạy.
-        if (tickCount % 5 == 0) Compat.keepChunk(level, blockPosition(), cfg.chunkLoadRadius);
+        long pt = Perf.t();
+        // Vé giữ chunk sống 100 tick: làm mới mỗi giây, hoặc ngay khi bước sang chunk khác (để không bị "đứng hình" ở mép chunk).
+        long chunkNow = net.minecraft.world.level.ChunkPos.pack(getBlockX() >> 4, getBlockZ() >> 4);
+        if (tickCount % 20 == 0 || chunkNow != lastChunk) { lastChunk = chunkNow; Compat.keepChunk(level, blockPosition(), cfg.chunkLoadRadius); }
+        Perf.add("giữ chunk", pt);
 
         ServerPlayer focus = focusPlayer();
+        pt = Perf.t();
         if (tickCount % 20 == 0) {
             mind().tickSecond(level, focus, survival.busy() && !survival.currentName().equals("nghỉ") && !isSleeping(),
                     isSleeping() ? "ngủ" : survival.currentName());
@@ -472,6 +479,7 @@ public class LyMeowzEntity extends LyMeowzBase {
             if (!isSleeping()) bond.tick(level);
             com.khanhly.lymeowz.mind.Diary.tick(this, level);
         }
+        Perf.add("tâm trí + gắn bó + nhật ký", pt);
         LivingEntity tgt = getTarget();
         if (lastFightTarget != null && !lastFightTarget.isAlive() && lastFightTarget instanceof Enemy)
             mind().event(Mind.Event.KILLED_MOB, null, Speech.mobName(lastFightTarget.getType()), lastFightTarget.blockPosition());
@@ -485,9 +493,14 @@ public class LyMeowzEntity extends LyMeowzBase {
         // Người chơi không vừa ngồi thụp vừa chạy: đang di chuyển thì đứng thẳng lên.
         if (getPose() == Pose.CROUCHING && getDeltaMovement().horizontalDistanceSqr() > 0.004 && !getNavigation().isDone()) setPose(Pose.STANDING);
         if (isSleeping()) { tickSleeping(level); return; }
-        if (greetTicks == 0 && exprTicks == 0) manner.tick(level);
+        pt = Perf.t();
+        // Cử chỉ chỉ để người khác thấy: không ai ở gần thì khỏi tính.
+        if (greetTicks == 0 && exprTicks == 0 && level.hasNearbyAlivePlayer(getX(), getY(), getZ(), 64)) manner.tick(level);
+        Perf.add("cử chỉ", pt);
         if (!campRestored) {
             campRestored = true;
+            var fr = getAttribute(Attributes.FOLLOW_RANGE); // bản cũ lưu 64
+            if (fr != null && fr.getBaseValue() > 48) fr.setBaseValue(48);
             if (camp.restore(this, level)) {
                 if (Compat.isNight(level)) { nightCamp = true; camp.reset(blockPosition()); }
                 else dismantling = true;
@@ -1205,23 +1218,61 @@ public class LyMeowzEntity extends LyMeowzBase {
     @Nullable
     public BlockPos findBlockNear(ServerLevel level, Block block, int r) {
         BlockPos feet = blockPosition();
-        for (BlockPos p : BlockPos.betweenClosed(feet.offset(-r, -2, -r), feet.offset(r, 2, r))) {
-            if (level.getBlockState(p).is(block)) return p.immutable();
-        }
-        return null;
+        return com.khanhly.lymeowz.util.BlockScan.nearest(level, feet, feet.offset(-r, -2, -r), feet.offset(r, 2, r), st -> st.is(block), p -> true);
     }
 
     /** Không chặt/đào/săn quanh giường của người chơi, và không phá công trình của chính mình. */
     public boolean isProtected(BlockPos p) {
         if (!(level() instanceof ServerLevel sl)) return false;
-        int r = LyConfig.get().protectRadius;
+        refreshZones(sl);
+        double r2 = (double) zoneRadius * zoneRadius;
+        for (BlockPos sp : zoneSpawns) if (sp.distSqr(p) <= r2) return true;
+        return inZone(p, 3);
+    }
+
+    // Vùng cấm (giường người chơi, công trình của mình) tính sẵn mỗi giây: isProtected được gọi cho hàng nghìn ô
+    // mỗi lần dò đá / dò cây, không nên lần nào cũng dựng lại tên chiều không gian, tra bản vẽ...
+    private final java.util.List<BlockPos> zoneSpawns = new java.util.ArrayList<>();
+    private final java.util.List<int[]> zoneBoxes = new java.util.ArrayList<>();
+    private long zoneTime = Long.MIN_VALUE;
+    private int zoneCount = -1, zoneRadius;
+
+    private void refreshZones(ServerLevel sl) {
+        CompanionStore.Data d = data();
+        int count = d == null ? 0 : d.structures.size();
+        long now = sl.getGameTime();
+        if (now - zoneTime < 20 && count == zoneCount) return;
+        zoneTime = now;
+        zoneCount = count;
+        zoneRadius = LyConfig.get().protectRadius;
+        zoneSpawns.clear();
+        zoneBoxes.clear();
         String dim = Compat.dimId(sl.dimension());
         for (ServerPlayer pl : sl.getServer().getPlayerList().getPlayers()) {
             GlobalPos spawn = Compat.respawn(pl);
-            if (spawn == null || !Compat.dimId(spawn.dimension()).equals(dim)) continue;
-            if (spawn.pos().distSqr(p) <= (double) r * r) return true;
+            if (spawn != null && Compat.dimId(spawn.dimension()).equals(dim)) zoneSpawns.add(spawn.pos());
         }
-        return inStructure(p, 3, null);
+        if (d == null) return;
+        for (var e : d.structures.entrySet()) {
+            CompanionStore.Spot s = e.getValue();
+            if (!s.dim.equals(dim)) continue;
+            int[] size = structureSize(e.getKey());
+            if (size[0] == 0) continue;
+            zoneBoxes.add(new int[]{s.x, s.y, s.z, size[0], size[1], size[2]});
+        }
+    }
+
+    /** Công trình vừa thêm/bớt: tính lại vùng cấm ngay lần tới. */
+    public void zonesChanged() {
+        zoneTime = Long.MIN_VALUE;
+    }
+
+    private boolean inZone(BlockPos p, int margin) {
+        int x = p.getX(), y = p.getY(), z = p.getZ();
+        for (int[] b : zoneBoxes)
+            if (x >= b[0] - margin && x < b[0] + b[3] + margin && z >= b[2] - margin && z < b[2] + b[5] + margin
+                    && y >= b[1] - margin && y < b[1] + b[4] + margin) return true;
+        return false;
     }
 
     /** Kích thước (rộng, cao, dài) của một công trình theo khoá. */
@@ -1265,7 +1316,9 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     /** Block này có thuộc công trình của cô ấy (nhà, ruộng, chuồng...) không. */
     public boolean ownsBlock(BlockPos p) {
-        return inStructure(p, 1, null);
+        if (!(level() instanceof ServerLevel sl)) return false;
+        refreshZones(sl);
+        return inZone(p, 1);
     }
 
     public void onBlockBroken(BlockState state) {

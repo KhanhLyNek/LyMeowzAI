@@ -75,16 +75,9 @@ public class GatherTask extends Task {
     /** Block phù hợp gần nhất (lộ ra ngoài, không thuộc công trình nào). */
     public static BlockPos nearest(LyMeowzEntity ly, ServerLevel level, Predicate<BlockState> block, int radius, Set<BlockPos> skip) {
         BlockPos c = ly.blockPosition();
-        BlockPos best = null;
-        double bd = 1e9;
-        for (BlockPos p : BlockPos.betweenClosed(c.offset(-radius, -4, -radius), c.offset(radius, 4, radius))) {
-            if (!block.test(level.getBlockState(p)) || skip.contains(p)) continue;
-            if (!level.getBlockState(p.above()).isAir() && !level.getBlockState(p.above()).canBeReplaced()) continue;
-            if (ly.isProtected(p)) continue;
-            double d = p.distSqr(c);
-            if (d < bd) { bd = d; best = p.immutable(); }
-        }
-        return best;
+        return com.khanhly.lymeowz.util.BlockScan.nearest(level, c, c.offset(-radius, -4, -radius), c.offset(radius, 4, radius), block,
+                p -> !skip.contains(p) && (level.getBlockState(p.above()).isAir() || level.getBlockState(p.above()).canBeReplaced())
+                        && !ly.isProtected(p));
     }
 
     @Override

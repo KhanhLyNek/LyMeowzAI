@@ -108,32 +108,35 @@ public class MineTask extends Task {
         if (!ore && !st.is(BlockTags.BASE_STONE_OVERWORLD)) return false;
         if (p.getY() < ly.getBlockY()) return false;          // không đào xuống dưới chân
         if (p.getY() > ly.getBlockY() + 3) return false;
-        if (ly.isProtected(p)) return false;                   // gần nhà
+        // Phải lộ ra (một mặt giáp không khí). (Kiểm tra rẻ trước, đắt sau.)
+        boolean exposed = false;
+        for (Direction d : Direction.values()) if (level.getBlockState(p.relative(d)).isAir()) { exposed = true; break; }
+        if (!exposed) return false;
         // Phải có dụng cụ đào được ra đồ.
         ItemStack tool = ly.bestToolFor(st);
         if (st.requiresCorrectToolForDrops() && (tool.isEmpty() || !tool.isCorrectToolForDrops(st))) return false;
-        // Phải lộ ra (một mặt giáp không khí).
-        for (Direction d : Direction.values()) if (level.getBlockState(p.relative(d)).isAir()) return true;
-        return false;
+        return !ly.isProtected(p);                             // gần nhà
     }
 
     public static BlockPos findTarget(LyMeowzEntity ly, ServerLevel level, BlockPos center, int radius, Set<BlockPos> blacklist) {
         BlockPos feet = ly.blockPosition();
         BlockPos best = null;
         double bestScore = Double.MAX_VALUE;
-        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
         int r = Math.min(radius, 16);
-        for (int dx = -r; dx <= r; dx++) for (int dz = -r; dz <= r; dz++) for (int dy = 0; dy <= 3; dy++) {
-            m.set(feet.getX() + dx, feet.getY() + dy, feet.getZ() + dz);
-            if (m.distSqr(center) > (double) radius * radius || !level.isLoaded(m) || blacklist.contains(m)) continue;
-            if (!isMineable(ly, level, m)) continue;
-            BlockState st = level.getBlockState(m);
-            double score = m.distSqr(feet);
-            if (st.is(BlockItemTags.COAL_ORES.block()) || st.is(BlockTags.IRON_ORES)) score -= 400; // ưu tiên quặng
-            if (score < bestScore && !BlockBreaker.canSee(ly, m)) score += 300; // ưu tiên chỗ đang nhìn thấy
-            if (score < bestScore) { bestScore = score; best = m.immutable(); }
-        }
-        return best;
+        BlockPos[] out = {null};
+        double[] bs = {Double.MAX_VALUE};
+        com.khanhly.lymeowz.util.BlockScan.forEach(level, feet.offset(-r, 0, -r), feet.offset(r, 3, r),
+                st -> st.is(BlockTags.BASE_STONE_OVERWORLD) || st.is(BlockItemTags.COAL_ORES.block()) || st.is(BlockTags.IRON_ORES),
+                (m, st) -> {
+                    boolean ore = !st.is(BlockTags.BASE_STONE_OVERWORLD);
+                    double score = m.distSqr(feet) - (ore ? 400 : 0); // ưu tiên quặng
+                    if (score >= bs[0]) return true;                  // không hơn được thì khỏi xét kỹ
+                    if (m.distSqr(center) > (double) radius * radius || blacklist.contains(m) || !isMineable(ly, level, m)) return true;
+                    if (!BlockBreaker.canSee(ly, m)) score += 300;   // ưu tiên chỗ đang nhìn thấy
+                    if (score < bs[0]) { bs[0] = score; out[0] = m.immutable(); }
+                    return true;
+                });
+        return out[0];
     }
 
     /** Ô không khí cạnh block (chỗ đứng nhìn vào mặt lộ ra), gần cô ấy nhất. */

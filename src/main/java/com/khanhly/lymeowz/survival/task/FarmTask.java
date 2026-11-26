@@ -127,15 +127,14 @@ public class FarmTask extends Task {
     }
 
     private BlockPos findGrass(ServerLevel level) {
+        return findGrass(ly, level, 48);
+    }
+
+    /** Bụi cỏ gần nhất (cắt cỏ ra hạt giống). Dò nhanh theo khúc chunk nên dò rộng được. */
+    public static BlockPos findGrass(LyMeowzEntity ly, ServerLevel level, int r) {
         BlockPos c = ly.blockPosition();
-        BlockPos best = null;
-        double bd = 1e9;
-        for (BlockPos p : BlockPos.betweenClosed(c.offset(-20, -3, -20), c.offset(20, 3, 20))) {
-            if (!isGrass(level.getBlockState(p)) || ly.isProtected(p)) continue;
-            double d = p.distSqr(c);
-            if (d < bd) { bd = d; best = p.immutable(); }
-        }
-        return best;
+        return com.khanhly.lymeowz.util.BlockScan.nearest(level, c, c.offset(-r, -4, -r), c.offset(r, 4, r), FarmTask::isGrass,
+                p -> !ly.isProtected(p));
     }
 
     private boolean till(ServerLevel level) {

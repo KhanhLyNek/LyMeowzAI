@@ -1,4 +1,4 @@
-# LyMeowz AI 🌸 — bản 7.1 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 7.2 (Minecraft 26.3)
 
 Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
 Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
@@ -253,12 +253,33 @@ skin như *3D Skin Layers*, *EMF/ETF* cũng nhận ra. Giáp cô ấy mặc cũn
 /lymeowz dismiss                 (OP) xoá cô ấy khỏi thế giới
 /lymeowz reload                  (OP) tải lại config
 /lymeowz selftest [survival]     (OP) tự kiểm tra / dựng khu thử và tua nhanh 60 phút xem cô ấy sinh tồn
+/lymeowz perf                    (OP) bắt đầu đo hiệu năng; gõ lại để xem mỗi phần tốn bao nhiêu µs mỗi tick
 ```
+
+## Hiệu năng (7.2)
+
+Cô ấy được làm để nhẹ như một người chơi, không như một cái máy quét liên tục:
+
+- **Dò khối theo khúc chunk.** Tìm cây, đá, quặng, cỏ, nước, quả mọng... không còn đọc từng ô một: mỗi khúc 16×16×16
+  của chunk có sẵn "bảng màu" các loại khối bên trong, khúc nào chắc chắn không có thứ cần tìm thì bỏ qua cả khúc. Tìm
+  gỗ trong bán kính 48 ô: **0,4 ms** (cách cũ: 9,4 ms). Không bao giờ nạp thêm chunk khi dò.
+- **Chỉ xem xét việc gấp khi đang bận.** Trước đây cứ mỗi giây cô ấy chấm điểm lại toàn bộ mọi việc có thể làm; giờ
+  khi đang làm dở thì chỉ kiểm tra chuyện gấp (quái tới, đói lả).
+- **Vùng cấm tính sẵn:** quanh giường người chơi, nhà, ruộng, chuồng của cô ấy được tính một lần mỗi giây thay vì
+  hàng nghìn lần mỗi lần dò.
+- **Việc thất bại thì tạm gác** (15 giây → tối đa 5 phút) thay vì thử lại liên tục.
+- **Lưu dữ liệu ở luồng phụ**, tệp JSON gọn (không thụt lề); trí nhớ vùng đã đi qua giới hạn ~2 km × 2 km.
+- **Cử chỉ chỉ tính khi có người ở gần** (trong 64 ô), vì không ai nhìn thì cũng chẳng để làm gì.
+- Tầm tìm đường 48 ô (trước 64), dò biome thưa hơn khi đi tìm đất làm nhà.
+- Chunk quanh cô ấy: chỉ giữ đúng mức tối thiểu để cô ấy hoạt động (chunk cô ấy đứng chạy đầy đủ, xung quanh chỉ
+  nạp sẵn), làm mới ngay khi cô ấy bước sang chunk khác để không bị khựng ở mép chunk.
+
+Gõ `/lymeowz perf`, chơi một lúc, gõ lại để xem số liệu trên máy bạn.
 
 ## Cài đặt
 
 Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.4 trở lên,
-[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-7.1.0+26.3.jar` vào thư mục `mods/`.
+[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-7.2.0+26.3.jar` vào thư mục `mods/`.
 
 ## Cấu hình: `config/lymeowz.json`
 

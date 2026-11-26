@@ -112,8 +112,10 @@ public class Survival {
         if (current != null) {
             // Mỗi giây xem có việc gì khẩn cấp hơn không (đói lả, gặp quái khi đang yếu...).
             if (age % 20 == 0) {
-                Decider.Option urgent = decider.best(decider.evaluate(level, center, radius, focus).stream()
+                long pt = com.khanhly.lymeowz.util.Perf.t();
+                Decider.Option urgent = decider.best(decider.urgent(level, radius).stream()
                         .filter(o -> o.urgent() && !o.action().equals(current.name()) && !backedOff(level, o)).toList());
+                com.khanhly.lymeowz.util.Perf.add("chọn việc (xem việc gấp)", pt);
                 boolean foodFirst = urgent != null && Decider.isFood(urgent.reason()) && ly.getHunger() <= 6
                         && !Decider.isFood(currentReason) && !"ăn".equals(current.name());
                 if (urgent != null && (urgent.score() > currentScore + 0.2f || foodFirst)) {
@@ -122,14 +124,19 @@ public class Survival {
                     return;
                 }
             }
-            if (!current.tick(level)) {
+            long pt = com.khanhly.lymeowz.util.Perf.t();
+            boolean go = current.tick(level);
+            com.khanhly.lymeowz.util.Perf.add("việc: " + current.name(), pt);
+            if (!go) {
                 finish(level);
                 cooldown = 10;
             }
             return;
         }
         if (cooldown-- > 0) return;
+        long pt = com.khanhly.lymeowz.util.Perf.t();
         Decider.Option o = decider.best(decider.evaluate(level, center, radius, focus).stream().filter(x -> !backedOff(level, x)).toList());
+        com.khanhly.lymeowz.util.Perf.add("chọn việc mới", pt);
         if (o == null || o.score() < 0.1f) { cooldown = 40; return; }
         begin(level, o);
     }

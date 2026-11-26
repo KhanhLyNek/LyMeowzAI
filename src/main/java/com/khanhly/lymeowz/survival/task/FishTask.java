@@ -43,16 +43,9 @@ public class FishTask extends Task {
     /** Mặt nước câu được gần đây (nước nguồn, phía trên thoáng, có chỗ đứng trên bờ). */
     public static BlockPos findWater(LyMeowzEntity ly, ServerLevel level, int r) {
         BlockPos c = ly.blockPosition();
-        BlockPos best = null;
-        double bd = 1e9;
-        for (BlockPos p : BlockPos.betweenClosed(c.offset(-r, -4, -r), c.offset(r, 3, r))) {
-            var f = level.getFluidState(p);
-            if (!f.is(FluidTags.WATER) || !f.isSource() || !level.getBlockState(p.above()).isAir()) continue;
-            if (shore(level, p) == null) continue;
-            double d = p.distSqr(c);
-            if (d < bd) { bd = d; best = p.immutable(); }
-        }
-        return best;
+        return com.khanhly.lymeowz.util.BlockScan.nearest(level, c, c.offset(-r, -4, -r), c.offset(r, 3, r),
+                st -> st.getFluidState().is(FluidTags.WATER) && st.getFluidState().isSource(),
+                p -> level.getBlockState(p.above()).isAir() && shore(level, p) != null);
     }
 
     private static BlockPos shore(ServerLevel level, BlockPos water) {

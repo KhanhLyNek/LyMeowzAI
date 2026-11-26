@@ -47,6 +47,18 @@ public final class LyCommands {
                     ly.speak(com.khanhly.lymeowz.speech.Speech.Act.BYE);
                     ly.discard();
                 })))
+                .then(literal("perf").requires(Compat::isOp).executes(c -> {
+                    var src = c.getSource();
+                    long now = src.getServer().getTickCount();
+                    if (!com.khanhly.lymeowz.util.Perf.on) {
+                        com.khanhly.lymeowz.util.Perf.start(now);
+                        src.sendSuccess(() -> Component.literal("Bắt đầu đo hiệu năng LyMeowz. Gõ lại /lymeowz perf để xem kết quả."), false);
+                    } else {
+                        for (String l : com.khanhly.lymeowz.util.Perf.report(now)) src.sendSuccess(() -> Component.literal(l), false);
+                        com.khanhly.lymeowz.util.Perf.on = false;
+                    }
+                    return 1;
+                }))
                 .then(literal("selftest").requires(Compat::isOp)
                         .then(literal("survival").executes(c -> {
                             var src = c.getSource();

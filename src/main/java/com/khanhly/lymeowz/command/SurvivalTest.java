@@ -72,6 +72,7 @@ public final class SurvivalTest {
 
     public static void start(MinecraftServer srv, Consumer<String> output) {
         freeOk = false; comeOk = false;
+        com.khanhly.lymeowz.util.Perf.start(srv.getTickCount());
         server = srv;
         out = output;
         ticks = 0;
@@ -234,6 +235,12 @@ public final class SurvivalTest {
                     t == null ? "-" : t.getType().toShortString() + (t.isAlive() ? "" : "(chết)"), ly.getNavigation().isDone() ? "done" : "moving",
                     ly.distanceTo(owner), ly.blockPosition().toShortString(), ly.getHealth()) + " " + ly.survival.currentDebug());
         }
+        if (ticks % 12000 == 0) {
+            for (String l : com.khanhly.lymeowz.util.Perf.report(server.getTickCount())) log("  ⏱ " + l);
+            Runtime rt = Runtime.getRuntime();
+            log(String.format("  ⏱ RAM server đang dùng: %d MB / %d MB", (rt.totalMemory() - rt.freeMemory()) >> 20, rt.maxMemory() >> 20));
+            com.khanhly.lymeowz.util.Perf.start(server.getTickCount());
+        }
         if (ticks % 1200 == 0) {
             var m = ly.mind().data();
             log(String.format("[%2d phút] %s, đang %s (%s), đói %d, máu %.0f | sợ %.0f vui %.0f chán %.0f tò mò %.0f năng lượng %.0f giao tiếp %.0f → %s | nhớ %d nơi | %s",
@@ -336,6 +343,18 @@ public final class SurvivalTest {
         }
         int campLeft = ly == null || ly.data() == null ? 0 : ly.data().campBlocks.size();
         int cows = ow.getEntitiesOfClass(Cow.class, new net.minecraft.world.phys.AABB(center).inflate(40)).size();
+        for (String l : com.khanhly.lymeowz.util.Perf.report(server.getTickCount())) log("  ⏱ " + l);
+        com.khanhly.lymeowz.util.Perf.on = false;
+        {
+            long t0 = System.nanoTime();
+            CompanionStore.markDirty();
+            CompanionStore.save();
+            long t1 = System.nanoTime();
+            var f = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve("lymeowz.json");
+            long size = 0;
+            try { size = java.nio.file.Files.size(f); } catch (Exception ignored) {}
+            log(String.format("  ⏱ lưu dữ liệu: %.1f ms, tệp %d KB", (t1 - t0) / 1e6, size >> 10));
+        }
         log("== Kết quả (" + why + ", " + ticks / 1200 + " phút trong game) ==");
         log((ok == all.length ? "PASS" : "FAIL") + " tiến trình sinh tồn " + ok + "/" + all.length + (missing.length() > 0 ? " — thiếu:" + missing : ""));
         log((pillarOk ? "PASS" : "FAIL") + " không chặt cột gỗ có lá người chơi đặt (giả làm nhà)");

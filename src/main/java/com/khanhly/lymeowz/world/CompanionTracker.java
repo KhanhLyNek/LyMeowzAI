@@ -156,7 +156,7 @@ public final class CompanionTracker {
                 if (!PENDING.containsKey(id) && find(server, d) == null) PENDING.put(id, RECALL_TIMEOUT);
             }
         }
-        if (server.getTickCount() % 1200 == 0) CompanionStore.save();
+        if (server.getTickCount() % 1200 == 0) CompanionStore.saveAsync();
     }
 
     private static void onLoad(Entity entity, ServerLevel level) {
