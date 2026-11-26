@@ -241,9 +241,33 @@ public class LyMeowzEntity extends LyMeowzBase {
     public void setWorkTable(@Nullable BlockPos p) {
         CompanionStore.Data d = data();
         if (d == null) return;
+        // Đặt bàn mới / thôi dùng bàn cũ mà bàn cũ vẫn còn đó: nhớ để lúc nào đi ngang qua thì thu dọn.
+        BlockPos old = structurePos(d.workTable);
+        if (old != null && !old.equals(p) && level().getBlockState(old).is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)
+                && d.oldTables.size() < 16) d.oldTables.add(d.workTable);
         d.workTable = p == null || !(level() instanceof ServerLevel sl) ? null
                 : new CompanionStore.Spot(Compat.dimId(sl.dimension()), p.getX(), p.getY(), p.getZ());
         CompanionStore.markDirty();
+    }
+
+    /** Bàn chế tạo cũ mình bỏ lại gần đây nhất trong {@code r} ô (đã kiểm tra còn là bàn), hoặc null. */
+    @Nullable
+    public BlockPos oldTableNear(int r) {
+        CompanionStore.Data d = data();
+        if (d == null || d.oldTables.isEmpty()) return null;
+        BlockPos best = null;
+        for (var it = d.oldTables.iterator(); it.hasNext(); ) {
+            BlockPos p = structurePos(it.next());
+            if (p == null || !level().isLoaded(p)) continue;
+            if (!level().getBlockState(p).is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) { it.remove(); continue; }
+            if (p.closerThan(blockPosition(), r) && (best == null || p.distSqr(blockPosition()) < best.distSqr(blockPosition()))) best = p;
+        }
+        return best;
+    }
+
+    public void forgetOldTable(BlockPos p) {
+        CompanionStore.Data d = data();
+        if (d != null) d.oldTables.removeIf(s -> s.x == p.getX() && s.y == p.getY() && s.z == p.getZ());
     }
 
     /** Chỗ đứng trong nhà đã xây xong (nhà theo bản vẽ hoặc nhà cũ), hoặc null nếu chưa có nhà thật. */

@@ -268,6 +268,7 @@ Cô ấy được làm để nhẹ như một người chơi, không như một 
 - **Vùng cấm tính sẵn:** quanh giường người chơi, nhà, ruộng, chuồng của cô ấy được tính một lần mỗi giây thay vì
   hàng nghìn lần mỗi lần dò.
 - **Việc thất bại thì tạm gác** (15 giây → tối đa 5 phút) thay vì thử lại liên tục.
+- **Không bỏ rác bàn chế tạo:** lỡ đặt bàn mới ở chỗ khác thì cô ấy nhớ bàn cũ, lúc đi ngang qua thì thu dọn.
 - **Lưu dữ liệu ở luồng phụ**, tệp JSON gọn (không thụt lề); trí nhớ vùng đã đi qua giới hạn ~2 km × 2 km.
 - **Cử chỉ chỉ tính khi có người ở gần** (trong 64 ô), vì không ai nhìn thì cũng chẳng để làm gì.
 - Tầm tìm đường 48 ô (trước 64), dò biome thưa hơn khi đi tìm đất làm nhà.

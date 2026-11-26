@@ -187,6 +187,11 @@ public class Decider {
         Perf.add("· dò đồ rơi", q0);
         if (drop != null) out.add(new Option("nhặt đồ", 0.5f, null, false, () -> new CollectTask(ly, drop)));
 
+        // Đi ngang chỗ bàn chế tạo cũ mình bỏ lại: thu dọn luôn.
+        BlockPos oldTable = ly.oldTableNear(24);
+        if (oldTable != null && !night) out.add(new Option("thu bàn chế tạo", 0.35f + 0.15f * p.diligent, "TIDY", false,
+                () -> new CraftTask.PickupTable(ly, oldTable)));
+
         // Chế đồ nâng cấp.
         if (craftCache != null) {
             Item target = craftCache;

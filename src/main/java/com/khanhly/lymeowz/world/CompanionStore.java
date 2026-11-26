@@ -82,6 +82,8 @@ public final class CompanionStore {
         @Nullable public Spot territory;
         /** Bàn chế tạo cô ấy tự đặt ở chỗ đang làm việc (giữ lại dùng tiếp, đi xa mới thu về). */
         @Nullable public Spot workTable;
+        /** Bàn chế tạo cũ còn để ngoài, lúc nào đi ngang thì thu dọn. */
+        public List<Spot> oldTables = new ArrayList<>();
         /** Giai đoạn trong lộ trình sinh tồn, và từ lúc nào (game time). */
         public int stage = -1;
         public long stageSince;
@@ -125,6 +127,7 @@ public final class CompanionStore {
             if (d.builtHouses == null) d.builtHouses = new ArrayList<>();
             if (d.rejectedSites == null) d.rejectedSites = new ArrayList<>();
             if (d.campBlocks == null) d.campBlocks = new ArrayList<>();
+            if (d.oldTables == null) d.oldTables = new ArrayList<>();
         }
         dirty = false;
     }

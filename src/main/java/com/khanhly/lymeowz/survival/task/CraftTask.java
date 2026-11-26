@@ -137,7 +137,7 @@ public class CraftTask extends Task {
 
         @Override
         protected boolean run(ServerLevel level) {
-            if (!level.getBlockState(table).is(Blocks.CRAFTING_TABLE)) { ly.setWorkTable(null); return false; }
+            if (!level.getBlockState(table).is(Blocks.CRAFTING_TABLE)) { done(); return false; }
             if (breaker.target() == null) {
                 if (!BlockBreaker.inReach(ly, table)) {
                     if (ly.getNavigation().isDone()) ly.walkTo(table, 1.0);
@@ -148,8 +148,13 @@ public class CraftTask extends Task {
                 breaker.start(table);
             }
             if (breaker.tick(ly, level) == BlockBreaker.Result.WORKING) return true;
-            if (!level.getBlockState(table).is(Blocks.CRAFTING_TABLE)) ly.setWorkTable(null);
+            if (!level.getBlockState(table).is(Blocks.CRAFTING_TABLE)) done();
             return false;
+        }
+
+        private void done() {
+            if (table.equals(ly.workTable())) ly.setWorkTable(null);
+            ly.forgetOldTable(table);
         }
 
         @Override
@@ -158,7 +163,7 @@ public class CraftTask extends Task {
             if (age >= timeout && level.getBlockState(table).is(Blocks.CRAFTING_TABLE) && ly.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(table)) < 64) {
                 level.removeBlock(table, false);
                 ly.inv().put(new net.minecraft.world.item.ItemStack(Items.CRAFTING_TABLE));
-                ly.setWorkTable(null);
+                done();
             }
         }
     }
