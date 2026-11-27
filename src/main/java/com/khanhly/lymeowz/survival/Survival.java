@@ -135,7 +135,8 @@ public class Survival {
         }
         if (cooldown-- > 0) return;
         long pt = com.khanhly.lymeowz.util.Perf.t();
-        Decider.Option o = decider.best(decider.evaluate(level, center, radius, focus).stream().filter(x -> !backedOff(level, x)).toList());
+        // Decider liệt kê những việc làm được và mức cần; còn chọn làm gì là do cô ấy cân nhắc (Thinker).
+        Decider.Option o = ly.thinker.choose(level, decider.evaluate(level, center, radius, focus).stream().filter(x -> !backedOff(level, x)).toList());
         com.khanhly.lymeowz.util.Perf.add("chọn việc mới", pt);
         if (o == null || o.score() < 0.1f) { cooldown = 40; return; }
         begin(level, o);
@@ -144,7 +145,10 @@ public class Survival {
     /** Những việc phải đi xa khỏi chỗ đang làm: trước khi đi thì thu bàn chế tạo đã đặt. */
     private static final Set<String> FAR = Set.of("khám phá", "tìm đất làm nhà", "dựng cổng Nether");
 
+    private float joyAtStart;
+
     private void begin(ServerLevel level, Decider.Option o) {
+        joyAtStart = ly.mind().data().joy;
         BlockPos wt = ly.workTable();
         boolean far = FAR.contains(o.action());
         if (wt != null && !far && (o.action().equals("xây nhà") || o.action().equals("trang trí nhà"))) {
@@ -186,6 +190,8 @@ public class Survival {
             com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     ({} {} sau {}s)", t.name(), ok ? "xong" : "thất bại", t.ageTicks() / 20);
         // Học: nhớ việc này ở vùng này thành công hay thất bại.
         if (!Set.of("nghỉ", "nhặt đồ", "ăn", "thư giãn").contains(t.name())) ly.mind().learn(t.name(), ly.blockPosition(), ok);
+        // Thấy việc vừa rồi vui hay chán (tâm trạng lên/xuống trong lúc làm) → lần sau thích làm hơn hay ngại hơn.
+        if (!Set.of("nhặt đồ", "ăn", "chạy trốn").contains(t.name())) ly.thinker.outcome(t.name(), ok, ly.mind().data().joy - joyAtStart);
         // Thất bại thì để việc đó nghỉ một lúc (15 giây, 30 giây, 1 phút... tối đa 5 phút), đừng thử đi thử lại liên tục
         // như cái máy (vd. hết cỏ để lấy hạt mà cứ đòi làm ruộng).
         if (!ok && !Set.of("nghỉ", "nhặt đồ", "ăn", "thư giãn", "chạy trốn").contains(t.name())) {

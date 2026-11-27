@@ -81,6 +81,18 @@ public final class Understanding {
         if (has(n, "thay sao", "the nao", "on khong", "khoe khong", "vui khong", "buon khong", "cam thay")) {
             return Speech.build(ly, Speech.Act.FEELING, Speech.Ctx.of().to(player));
         }
+        if (has(n, "nghi gi", "dang nghi", "suy nghi", "thinking")) {
+            String t = ly.thinker.currentThought();
+            return t == null ? cap(me) + " " + v.pick("đang thả hồn thôi", "chẳng nghĩ gì cả", "đang ngẩn ngơ") + v.ending() : t;
+        }
+        if (has(n, "dinh lam", "tinh lam", "se lam gi", "ke hoach hom nay", "hom nay lam gi", "hom nay cau lam gi") && !has(n, "duoc", "roi")) {
+            String pl = ly.thinker.plan();
+            return pl == null ? cap(me) + " chưa tính gì, " + v.pick("cứ thong thả đã", "xem tình hình rồi tính") + v.ending() : pl;
+        }
+        if (has(n, "tai sao", "sao lai", "vi sao", "sao cau", "why")) {
+            String e = ly.thinker.explainCurrent(ly.survival.currentName());
+            if (e != null) return e;
+        }
         if (has(n, "dang lam gi", "lam gi vay", "lam gi the", "doing")) {
             String doing = ly.survival.currentName();
             return (doing.equals("nghỉ") ? cap(me) + " đang " + v.pick("nghỉ", "rảnh", "đứng ngắm trời") : cap(me) + " đang " + Speech.verb(v, doing)) + v.ending();

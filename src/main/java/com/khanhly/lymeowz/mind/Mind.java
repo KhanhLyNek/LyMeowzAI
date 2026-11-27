@@ -102,6 +102,9 @@ public class Mind {
     /** Một chuyện xảy ra: đổi cảm xúc, đổi quan hệ, ghi vào nhật ký. */
     public void event(Event e, @Nullable Player who, @Nullable String what, @Nullable BlockPos where) {
         Personality p = p();
+        // Chuyện lớn xảy ra thì nghĩ lại xem mình nên làm gì.
+        if (e == Event.HURT_BY_MOB || e == Event.HIT_BY_PLAYER || e == Event.FAINTED || e == Event.OWNER_RETURNED
+                || e == Event.NIGHT_FELL || e == Event.BUILT || e == Event.GIFT) ly.thinker.nudge();
         switch (e) {
             case GIFT -> { d.joy += 12; d.social += 8; }
             case FED -> { d.joy += 10; relate(who, 3, true); }
@@ -359,6 +362,12 @@ public class Mind {
             s.success *= 0.95f;
             s.fail *= 0.95f;
             if (success) s.success += 1; else s.fail += 1;
+        }
+        if (d.learned.size() > 300) {
+            // Quên bớt những vùng ít nhớ nhất (đi khắp nơi thì danh sách vùng không phình mãi).
+            d.learned.entrySet().stream().filter(x -> x.getKey().contains("@"))
+                    .sorted(java.util.Comparator.comparingDouble(x -> x.getValue().success + x.getValue().fail))
+                    .limit(60).map(java.util.Map.Entry::getKey).toList().forEach(d.learned::remove);
         }
         event(success ? Event.TASK_SUCCESS : Event.TASK_FAIL, null, action, where);
         if (success) { rollDay(); d.today.merge(action, 1, Integer::sum); }

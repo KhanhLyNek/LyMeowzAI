@@ -235,7 +235,7 @@ public final class Speech {
 
     // ------------------------------------------------------------------ các mảnh câu
 
-    static String verb(Voice v, String action) {
+    public static String verb(Voice v, String action) {
         if (action == null) return v.pick("làm", "làm việc");
         return switch (action) {
             case "chặt cây" -> v.pick("đi chặt cây", "đi đốn ít gỗ", "kiếm thêm gỗ", "chặt vài cây");
@@ -255,7 +255,7 @@ public final class Speech {
         };
     }
 
-    static String reason(Voice v, String r) {
+    public static String reason(Voice v, String r) {
         if (r == null) return null;
         String me = v.self, you = v.you;
         return switch (r) {

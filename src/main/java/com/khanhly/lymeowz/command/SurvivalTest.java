@@ -220,6 +220,7 @@ public final class SurvivalTest {
         if (ly.isSleeping()) slept = true;
         mark("ngủ trên giường", slept);
         mark("viết nhật ký", !ly.mind().data().diary.isEmpty());
+        mark("tự lên kế hoạch", ly.thinker.plan() != null);
         if (all.count(Items.COD) + all.count(Items.SALMON) + all.count(Items.COOKED_COD) + all.count(Items.COOKED_SALMON) > 0) fished = true;
         mark("câu được cá", fished);
         if (all.count(Items.SWEET_BERRIES) > 0) berries = true;
@@ -260,11 +261,13 @@ public final class SurvivalTest {
             r.affinity = 45;
             log("  (độ thân với LyTester → 45: bạn bè)");
         }
+        if (ticks == 12390 || ticks == 9590) owner.snapTo(ly.getX() + 3, ly.getY(), ly.getZ()); // tới cạnh cô ấy rồi hỏi
         String[] chats = switch (ticks) {
             case 600 -> new String[]{"chào", "cậu tên gì?", "đi theo mình đi", "cậu đang ở đâu vậy?"};
             case 3600 -> new String[]{"cậu đói không?", "cậu đang làm gì vậy?", "cậu dễ thương quá"};
             case 6020 -> new String[]{"theo mình nào", "tự do đi", "tọa độ của cậu là gì?", "kế hoạch của cậu là gì?"};
             case 9600 -> new String[]{"cậu thấy sao?", "mỏ đá ở đâu?", "trong túi có gì?", "nhà cậu ở đâu?"};
+            case 12400 -> new String[]{"cậu đang nghĩ gì vậy?", "hôm nay cậu định làm gì?", "sao cậu lại làm vậy?"};
             case 16800 -> new String[]{"đồ ngốc", "kể chuyện đi", "hôm nay làm được gì?", "cậu có thích mình không?", "blorp xyz?"};
             default -> null;
         };
@@ -312,7 +315,7 @@ public final class SurvivalTest {
             }
             log("  (thử nghiệm: đặt một rương đầy nguyên liệu cạnh nền nhà để xem cô ấy xây tới khi xong)");
         }
-        boolean allDone = milestones.size() >= 23;
+        boolean allDone = milestones.size() >= 24;
         if (allDone && !ly.survival.busy() && ticks % 100 == 0) finish("xong mọi mốc");
         else if (ticks >= MAX_TICKS) finish("hết giờ");
     }
@@ -329,7 +332,7 @@ public final class SurvivalTest {
         server.tickRateManager().stopSprinting();
         LyMeowzEntity ly = ow.getEntity(lyId) instanceof LyMeowzEntity e ? e : null;
         String[] all = {"có gỗ", "cuốc gỗ", "rìu gỗ", "có đá cuội", "cuốc đá", "rìu đá", "kiếm đá", "lò nung", "than",
-                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "tìm đất làm nhà", "xây nhà", "làm ruộng", "làm chuồng", "đặt giường", "ngủ trên giường", "viết nhật ký"};
+                "săn được thịt", "nướng chín thịt", "tự ăn khi đói", "tìm đất làm nhà", "xây nhà", "làm ruộng", "làm chuồng", "đặt giường", "ngủ trên giường", "viết nhật ký", "tự lên kế hoạch"};
         int ok = 0;
         StringBuilder missing = new StringBuilder();
         for (String m : all) if (milestones.containsKey(m)) ok++; else missing.append(" ").append(m);

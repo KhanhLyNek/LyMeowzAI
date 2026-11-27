@@ -1,4 +1,4 @@
-# LyMeowz AI 🌸 — bản 7.2 (Minecraft 26.3)
+# LyMeowz AI 🌸 — bản 8.0 (Minecraft 26.3)
 
 Mod **Fabric cho Minecraft 26.3** thêm vào thế giới một **cô gái AI sống như một người chơi thật**.
 Cô ấy không phải thú cưng hay người hầu. Cô ấy tự chặt cây, đào mỏ, xây nhà, làm ruộng, chăn nuôi, tối về giường ngủ,
@@ -256,6 +256,29 @@ skin như *3D Skin Layers*, *EMF/ETF* cũng nhận ra. Giáp cô ấy mặc cũn
 /lymeowz perf                    (OP) bắt đầu đo hiệu năng; gõ lại để xem mỗi phần tốn bao nhiêu µs mỗi tick
 ```
 
+## Tư duy (mới ở 8.0)
+
+Cô ấy không chỉ làm việc theo thứ tự ưu tiên nữa mà tự nghĩ xem mình muốn gì, rồi quyết định làm gì tiếp:
+
+- **Mong muốn:** cứ khoảng nửa phút cô ấy nhìn lại hoàn cảnh: đồ ăn còn mấy miếng, nhà xây tới đâu, đồ nghề ra sao,
+  trời sắp tối chưa, mình mệt hay chán, bạn có ở gần không, rồi chọn điều muốn lo nhất (*lo cái ăn, lo chỗ ở,
+  làm đồ nghề, đi khám phá, làm đẹp nhà, nghỉ ngơi, ở cạnh bạn, về nhà trước khi tối, chuẩn bị đi Nether*). Tính cách
+  ảnh hưởng nhiều: cô gái mê xây thì hay lo nhà cửa, cô gái tò mò thì hay đi xa.
+- **Kiên định nhưng biết đổi ý:** đã quyết lo chuyện gì thì theo đuổi tới cùng, không đổi xoành xoạch; chỉ khi có
+  chuyện cần hơn hẳn mới đổi ("Thôi, làm đồ nghề để sau. Giờ phải lo chỗ ở đã, vì mình chưa có nhà.").
+- **Kế hoạch trong ngày:** sáng ra cô ấy tự sắp xếp hôm nay lo gì trước, gì sau, và ghi vào nhật ký.
+- **Cân nhắc khi chọn việc:** việc giúp điều mình đang muốn thì được ưu tiên; làm mãi một việc thì chán, muốn đổi
+  gió; việc lần trước làm thấy vui thì thích làm lại, việc làm hỏng thì ngại; lúc thoải mái thì tùy hứng hơn, lúc
+  đói hay sợ thì làm đúng việc cần nhất. Không phải lúc nào cũng chọn việc "điểm cao nhất".
+- **Canh giờ:** chiều tà mà đang ở xa nhà thì tự về trước khi tối.
+- **Nghĩ thành lời:** có bạn ở gần thì thỉnh thoảng cô ấy nghĩ thành tiếng ("Gỗ sắp hết rồi, mà mình cũng đang muốn
+  lo chỗ ở... đi chặt cây nào."). Đêm nằm chờ sáng thì nghĩ vẩn vơ về ngày mai. Hỏi cô ấy:
+  - *"cậu đang nghĩ gì?"*: điều cô ấy vừa nghĩ;
+  - *"hôm nay cậu định làm gì?"*: kế hoạch trong ngày;
+  - *"sao cậu lại làm vậy?"*: lý do của việc đang làm.
+- **Có LLM thì nghĩ sâu hơn:** khi bật `llm.enabled` (và `llm.thinking`, mặc định bật), mỗi sáng cô ấy nhờ LLM giúp
+  tự quyết hôm nay lo gì trước và nói kế hoạch bằng giọng của mình. Gọi ở luồng phụ, mỗi ngày trong game một lần.
+
 ## Hiệu năng (7.2)
 
 Cô ấy được làm để nhẹ như một người chơi, không như một cái máy quét liên tục:
@@ -280,7 +303,7 @@ Gõ `/lymeowz perf`, chơi một lúc, gõ lại để xem số liệu trên má
 ## Cài đặt
 
 Bạn cần Minecraft **26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.18.4 trở lên,
-[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-7.2.0+26.3.jar` vào thư mục `mods/`.
+[Fabric API](https://modrinth.com/mod/fabric-api) và Java 25. Chép `lymeowzai-8.0.0+26.3.jar` vào thư mục `mods/`.
 
 ## Cấu hình: `config/lymeowz.json`
 

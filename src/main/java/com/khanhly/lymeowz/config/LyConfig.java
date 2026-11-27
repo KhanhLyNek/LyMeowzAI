@@ -55,6 +55,8 @@ public class LyConfig {
         public String apiKey = "";
         public int timeoutSeconds = 20;
         public int maxHistory = 12;
+        /** Khi bật LLM: mỗi sáng nhờ LLM giúp cô ấy tự nghĩ kế hoạch trong ngày (chọn điều muốn lo nhất). */
+        public boolean thinking = true;
     }
 
     public static LyConfig get() {

@@ -93,6 +93,8 @@ public class LyMeowzEntity extends LyMeowzBase {
 
     public final Brain brain = new Brain(this);
     public final Survival survival = new Survival(this);
+    /** Tư duy: mong muốn, kế hoạch trong ngày, cân nhắc khi chọn việc, suy nghĩ thành lời. */
+    public final com.khanhly.lymeowz.mind.Thinker thinker = new com.khanhly.lymeowz.mind.Thinker(this);
     public final com.khanhly.lymeowz.bond.Bond bond = new com.khanhly.lymeowz.bond.Bond(this);
     /** Cử chỉ vụn vặt: đảo mắt, nhảy, ngó quanh, trò ngây ngô. */
     public final Mannerisms manner = new Mannerisms(this);
@@ -150,6 +152,11 @@ public class LyMeowzEntity extends LyMeowzBase {
         double effects = attr.getValue() / (attr.getBaseValue() * (isSprinting() ? 1.3 : 1.0)); // thuốc chậm/nhanh, ...
         double max = (isSprinting() ? SPRINT : WALK) * effects;
         super.setSpeed((float) (max * Math.min(1.0, mod)));
+    }
+
+    @Override
+    protected net.minecraft.world.entity.ai.navigation.PathNavigation createNavigation(net.minecraft.world.level.Level level) {
+        return new LyNavigation(this, level);
     }
 
     @Override
@@ -502,6 +509,7 @@ public class LyMeowzEntity extends LyMeowzBase {
             noticePlayers(level);
             if (!isSleeping()) bond.tick(level);
             com.khanhly.lymeowz.mind.Diary.tick(this, level);
+            thinker.tick(level);
         }
         Perf.add("tâm trí + gắn bó + nhật ký", pt);
         LivingEntity tgt = getTarget();
@@ -543,23 +551,35 @@ public class LyMeowzEntity extends LyMeowzBase {
             r = null;
         }
         if (r != null) {
+            long rt = Perf.t();
+            try { if (tickRequest(level, r)) return; } finally { Perf.add("được nhờ: " + r.type, rt); }
+        }
+        pt = Perf.t();
+        boolean night = tickNight(level);
+        Perf.add("ban đêm", pt);
+        if (night) return;
+        tickIndependent(level, cfg);
+    }
+
+    /** @return true nếu tick này đã lo xong việc được nhờ. */
+    private boolean tickRequest(ServerLevel level, CompanionStore.Request r) {
+        {
             ServerPlayer who = requester(r);
             switch (r.type) {
-                case "FOLLOW" -> { if (who != null) { tickFollow(level, who); return; } }
-                case "WAIT" -> { tickWait(level, r, who); return; }
-                case "HOME" -> { if (tickGoHome(level)) return; clearRequest(); }
-                case "VISIT", "FETCH", "DELIVER", "LEAD", "MOVE" -> { tickGoTo(level, r, who); return; }
+                case "FOLLOW" -> { if (who != null) { tickFollow(level, who); return true; } }
+                case "WAIT" -> { tickWait(level, r, who); return true; }
+                case "HOME" -> { if (tickGoHome(level)) return true; clearRequest(); }
+                case "VISIT", "FETCH", "DELIVER", "LEAD", "MOVE" -> { tickGoTo(level, r, who); return true; }
                 case "CAMP" -> {
                     survival.tickMaintenance(level);
                     getNavigation().stop();
                     if (who != null) getLookControl().setLookAt(who, 10f, 10f);
-                    return;
+                    return true;
                 }
                 default -> clearRequest();
             }
         }
-        if (tickNight(level)) return;
-        tickIndependent(level, cfg);
+        return false;
     }
 
     // ------------------------------------------------------------------ sống độc lập
@@ -582,7 +602,7 @@ public class LyMeowzEntity extends LyMeowzBase {
     }
 
     /** Đi bộ (chạy nếu xa) tới một chỗ, từng chặng ~24 block. */
-    private void travelTo(ServerLevel level, BlockPos to, double dist) {
+    public void travelTo(ServerLevel level, BlockPos to, double dist) {
         if (getNavigation().isDone() || tickCount % 60 == 0) {
             setSprinting(dist > 12);
             Vec3 dir = Vec3.atBottomCenterOf(to).subtract(position());
@@ -1201,7 +1221,15 @@ public class LyMeowzEntity extends LyMeowzBase {
         swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, true);
     }
 
+    private BlockPos walkTarget;
+    private int walkAt = -100;
+
     public void walkTo(BlockPos pos, double speed) {
+        // Nhiều việc gọi walkTo mỗi tick khi đứng yên; chỗ không tới được thì đường tìm ra rỗng, đứng yên → lại tìm...
+        // Tìm đường tốn công: cùng một đích thì nửa giây mới tìm lại một lần.
+        if (pos.equals(walkTarget) && tickCount - walkAt < 10) return;
+        walkTarget = pos.immutable();
+        walkAt = tickCount;
         var path = getNavigation().createPath(pos, 1);
         if (path != null) {
             setSprinting(Math.sqrt(pos.distSqr(blockPosition())) > 14);

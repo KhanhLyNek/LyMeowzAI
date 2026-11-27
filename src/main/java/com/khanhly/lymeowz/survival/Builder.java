@@ -70,7 +70,7 @@ public class Builder {
 
         double reach = ly.getEyePosition().distanceTo(Vec3.atCenterOf(p.pos));
         if (reach > BlockBreaker.REACH - 0.3) {
-            if (ly.getNavigation().isDone() || ly.tickCount % 40 == 0) {
+            if ((ly.getNavigation().isDone() && ly.tickCount % 10 == 0) || ly.tickCount % 40 == 0) {
                 var path = ly.getNavigation().createPath(p.pos, 2);
                 if (path != null) ly.getNavigation().moveTo(path, 1.0);
             }

@@ -436,6 +436,12 @@ public class Decider {
             out.add(new Option("thắp đuốc", s, "DARK", false, () -> new SimpleTasks.Light(ly)));
         }
 
+        // Chiều tà mà còn ở xa nhà: về trước khi tối (như người chơi canh giờ về).
+        BlockPos inside = ly.builtHomeInside();
+        long tod = level.getOverworldClockTime() % 24000L;
+        if (inside != null && tod > 10800 && tod < 13500 && inside.distSqr(ly.blockPosition()) > 40 * 40)
+            out.add(new Option("về nhà", 0.6f + 0.25f * (1 - p.brave), "NIGHT", false, () -> new SimpleTasks.GoHome(ly, inside)));
+
         // ---------------------------------------------------------------- bản năng sinh tồn
         // Đói mà trong túi không có gì ăn được: không còn đồ ăn quanh đây thì đi xa tìm (chỗ nhớ có thú, hoặc vùng mới).
         boolean noFood = all.count(s -> Tools.edible(s, Math.min(ly.getHunger(), 4))) == 0;

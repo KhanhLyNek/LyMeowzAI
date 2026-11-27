@@ -40,6 +40,12 @@ public final class LlmClient {
                 """;
     }
 
+    /** Tự nghĩ (độc thoại nội tâm): không có lịch sử chat, chỉ một tình huống và câu hỏi. */
+    public static CompletableFuture<String> think(String situation) {
+        java.util.List<String> h = java.util.List.of("user: " + situation);
+        return chat(h, "Bạn đang tự nghĩ một mình, không nói với ai. Trả lời theo đúng yêu cầu định dạng.");
+    }
+
     public static CompletableFuture<String> chat(Collection<String> history, String context) {
         LyConfig.Llm cfg = LyConfig.get().llm;
         JsonArray messages = new JsonArray();

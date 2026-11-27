@@ -60,6 +60,9 @@ public final class Diary {
         else if (level.isRaining()) b.append(pick(r, "Hôm nay trời mưa. ", "Mưa cả ngày. "));
         else b.append(pick(r, "Trời nắng đẹp. ", "Hôm nay trời trong. ", ""));
 
+        // Sáng nay định làm gì (tư duy của cô ấy).
+        String plan = ly.thinker.plan();
+        if (plan != null) b.append("Sáng nay tớ tính: ").append(plan.replaceFirst("^Hôm nay ", "")).append(" ");
         // Việc đã làm.
         ly.mind().rollDay();
         List<String> did = new ArrayList<>();

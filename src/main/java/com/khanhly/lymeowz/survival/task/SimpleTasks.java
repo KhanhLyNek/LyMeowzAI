@@ -242,4 +242,19 @@ public final class SimpleTasks {
 
     @SuppressWarnings("unused")
     private static double unused(ItemStack s) { return Tools.fuelValue(s); }
+
+    /** Về nhà (vd. trời sắp tối mà đang ở xa): đi bộ / chạy về như người chơi. */
+    public static class GoHome extends Task {
+        private final BlockPos home;
+        public GoHome(LyMeowzEntity ly, BlockPos home) { super(ly); this.home = home; timeout = 20 * 120; }
+        @Override public String name() { return "về nhà"; }
+        @Override public boolean succeeded() { return home.closerThan(ly.blockPosition(), 6); }
+        @Override protected boolean run(ServerLevel level) {
+            double d = Math.sqrt(home.distSqr(ly.blockPosition()));
+            if (d < 5) return false;
+            ly.travelTo(level, home, d);
+            return true;
+        }
+        @Override public void stop(ServerLevel level) { ly.setSprinting(false); }
+    }
 }
