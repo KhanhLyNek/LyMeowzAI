@@ -95,6 +95,44 @@ public class BlueprintTask extends Task {
 
     // ------------------------------------------------------------------ bắt đầu
 
+    private boolean quit;
+
+    /** Khối do chính mình đặt (hộp trú đêm, bàn chế tạo) — dọn được. */
+    private boolean placedByMe(BlockPos w) {
+        var d = ly.data();
+        if (d == null) return false;
+        if (w.equals(ly.workTable())) return true;
+        for (var s : d.campBlocks) if (s.x == w.getX() && s.y == w.getY() && s.z == w.getZ()) return true;
+        for (var s : d.oldTables) if (s.x == w.getX() && s.y == w.getY() && s.z == w.getZ()) return true;
+        return false;
+    }
+
+    /** Đã xây được chút nào chưa (≥ 5% khối chính). */
+    private boolean startedBuilding(ServerLevel level) {
+        int total = 0, done = 0;
+        for (Blueprint.Piece p : bp.pieces) {
+            if (Materials.optional(p.state()) || p.pos().getY() == 0) continue;
+            total++;
+            if (same(level.getBlockState(world(p.pos())), p.state())) done++;
+        }
+        return total > 0 && done * 20 > total;
+    }
+
+    /** Chỗ này vướng đồ của người chơi: thôi, đi tìm chỗ khác. */
+    private void abandonSite(ServerLevel level) {
+        quit = true;
+        var d = ly.data();
+        if (d == null) return;
+        d.blueprintAt = null;
+        d.structures.remove("plan:home");
+        d.rejectedSites.add(new CompanionStore.Spot(Compat.dimId(level.dimension()), origin.getX(), origin.getY(), origin.getZ()));
+        if (d.rejectedSites.size() > 12) d.rejectedSites.remove(0);
+        CompanionStore.markDirty();
+        ly.zonesChanged();
+        if (com.khanhly.lymeowz.command.SurvivalTest.running())
+            com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     (chỗ định xây nhà có đồ người chơi làm → tìm chỗ khác)");
+    }
+
     @Override
     public void start(ServerLevel level) {
         for (Blueprint.Piece p : bp.pieces) plan.add(world(p.pos()));
@@ -107,6 +145,13 @@ public class BlueprintTask extends Task {
                 if (st.isAir() || !st.getFluidState().isEmpty() || ly.ownsBlockOtherThan(w, origin)) continue;
                 // Đuốc, nến... (không có va chạm, không phải cây con) trong nhà thì cứ để.
                 if (!st.canBeReplaced() && st.getCollisionShape(level, w).isEmpty() && !st.is(net.minecraft.tags.BlockTags.SAPLINGS)) continue;
+                // Đồ người chơi làm (không phải đất đá cây cỏ tự nhiên): không phá — bỏ chỗ này, đi tìm đất khác.
+                if (!FindHomeTask.natural(level, w, st) && !placedByMe(w)) {
+                    if (!startedBuilding(level)) { abandonSite(level); return; }
+                    continue; // nhà đã xây được kha khá: chừa chỗ đó ra
+                }
+                // Tán lá cây bên cạnh chìa vào phía trên mái: kệ nó (với không tới, lại chẳng vướng gì).
+                if (st.is(net.minecraft.tags.BlockTags.LEAVES) && rel.getY() >= 4) continue;
                 c.add(w);
             }
             // Từ trên xuống (chặt ngọn cây trước), rồi gần trước xa sau.
@@ -133,6 +178,7 @@ public class BlueprintTask extends Task {
 
     @Override
     protected boolean run(ServerLevel level) {
+        if (quit) return false;
         if (breaker.target() != null) {
             BlockPos t = breaker.target();
             BlockBreaker.Result r = breaker.tick(ly, level);

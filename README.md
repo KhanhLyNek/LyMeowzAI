@@ -276,6 +276,9 @@ Cô ấy không chỉ làm việc theo thứ tự ưu tiên nữa mà tự nghĩ
   - *"cậu đang nghĩ gì?"*: điều cô ấy vừa nghĩ;
   - *"hôm nay cậu định làm gì?"*: kế hoạch trong ngày;
   - *"sao cậu lại làm vậy?"*: lý do của việc đang làm.
+- **Không xây đè lên đồ của người chơi:** chỗ định xây mà có cột gỗ, tường, hàng rào... do người làm thì cô ấy bỏ chỗ
+  đó, đi tìm chỗ khác; chỉ dọn đất đá, cây cỏ tự nhiên.
+- **Đói mà túi đầy, rương cũng đầy:** cô ấy đổi một chồng đồ ít cần vào rương để lấy đồ ăn ra.
 - **Có LLM thì nghĩ sâu hơn:** khi bật `llm.enabled` (và `llm.thinking`, mặc định bật), mỗi sáng cô ấy nhờ LLM giúp
   tự quyết hôm nay lo gì trước và nói kế hoạch bằng giọng của mình. Gọi ở luồng phụ, mỗi ngày trong game một lần.
 

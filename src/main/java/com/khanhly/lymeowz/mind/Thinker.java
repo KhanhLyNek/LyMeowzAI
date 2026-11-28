@@ -122,7 +122,9 @@ public final class Thinker {
         var d = ly.data();
         if (!home && stage.ordinal() >= Roadmap.Stage.SHELTER.ordinal()) {
             String r = d != null && d.blueprint != null && d.blueprintAt != null ? "nhà mới đang xây dở" : "mình chưa có nhà";
-            put(Aim.SHELTER, 0.55f + 0.3f * p.builder, r);
+            // Đã sống tạm được một thời gian (lộ trình đã sang làm ruộng, chuồng...) thì vẫn lo nhà nhưng không gấp bằng lúc đầu.
+            boolean settled = stage.ordinal() > Roadmap.Stage.SHELTER.ordinal();
+            put(Aim.SHELTER, settled ? 0.4f + 0.2f * p.builder : 0.55f + 0.3f * p.builder, r);
         } else if (d != null && d.blueprint != null) {
             put(Aim.SHELTER, 0.35f + 0.25f * p.builder, "đang tích đồ xây căn nhà mới");
         }

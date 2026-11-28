@@ -310,7 +310,7 @@ public class FarmTask extends Task {
                 BlockState a = level.getBlockState(p);
                 if (!(a.isAir() || (a.canBeReplaced() && a.getFluidState().isEmpty()))) ok = false;
                 else if (g.is(Blocks.GRASS_BLOCK) || g.is(Blocks.DIRT)) good++;
-                else if (!g.is(BlockTags.DIRT) && !g.isSolid()) ok = false;
+                else if (!g.is(BlockTags.SUBSTRATE_OVERWORLD) && !g.isSolid()) ok = false;
             }
             if (!ok || good < SIZE * SIZE - 3) continue;
             double s = Math.sqrt(c.distSqr(home));

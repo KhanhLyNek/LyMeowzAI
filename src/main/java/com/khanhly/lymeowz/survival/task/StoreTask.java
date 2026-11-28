@@ -131,7 +131,23 @@ public class StoreTask extends Task {
                 ItemStack got = s.split(Math.min(s.getCount(), 8));
                 c.setChanged();
                 ItemStack left = inv.put(got);
-                if (!left.isEmpty()) { s.grow(left.getCount()); break outer; }
+                if (!left.isEmpty()) {
+                    s.grow(left.getCount());
+                    // Túi đầy, rương cũng đầy: đổi chỗ — bỏ một chồng đồ ít cần nhất vào rương, lấy đồ ăn ra (đói là trên hết).
+                    int junk = -1;
+                    for (int j = 0; j < inv.getContainerSize(); j++) {
+                        ItemStack q = inv.getItem(j);
+                        if (!q.isEmpty() && keep(q) == 0 && !Tools.isFood(q)) { junk = j; break; }
+                    }
+                    if (junk < 0 || s.isEmpty()) break outer;
+                    ItemStack food = s.copy();
+                    c.setItem(i, inv.getItem(junk).copy());
+                    inv.setItem(junk, food);
+                    c.setChanged();
+                    inv.setChanged();
+                    taken += food.getCount();
+                    break outer;
+                }
                 taken += got.getCount();
                 break outer;
             }

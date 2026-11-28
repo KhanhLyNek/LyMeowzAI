@@ -162,9 +162,47 @@ public class FindHomeTask extends Task {
             rough += dh;
         }
         if (logs > 20) return Double.MAX_VALUE;
+        // Có đồ người chơi làm trong chỗ định xây (cột gỗ, tường, hàng rào...): bỏ chỗ này.
+        int y0 = sorted[0] - 1, y1 = sorted[sorted.length - 1] + Math.min(bp.height, 12);
+        for (BlockPos q : BlockPos.betweenClosed(new BlockPos(x0, y0, z0), new BlockPos(x0 + w - 1, y1, z0 + l - 1))) {
+            BlockState s = level.getBlockState(q);
+            if (!s.isAir() && !natural(level, q, s) && !ly.ownsBlock(q)) {
+                if (com.khanhly.lymeowz.command.SurvivalTest.running() && ly.getRandom().nextInt(40) == 0)
+                    com.khanhly.lymeowz.LyMeowzMod.LOGGER.info("[survival]     (chỗ {} vướng {})", q.toShortString(), s.getBlock());
+                return Double.MAX_VALUE;
+            }
+        }
         if (!goodBiome(level, new BlockPos(x0 + w / 2, median, z0 + l / 2))) rough += 400;
         lastGround = median - 1; // lớp y=0 của bản vẽ là lớp cỏ/đất
         return rough + logs * 3 + Math.sqrt((x0 - ly.getX()) * (x0 - ly.getX()) + (z0 - ly.getZ()) * (z0 - ly.getZ())) * 0.5;
+    }
+
+    /**
+     * Khối "tự nhiên" (đất, đá, cát, cây cỏ, cây gỗ mọc tự nhiên có lá tự nhiên...) — dọn đi được. Còn lại (ván, kính,
+     * lá đặt tay, cột gỗ không có lá tự nhiên...) có thể là đồ người chơi làm: không được phá, không xây đè lên.
+     */
+    public static boolean natural(ServerLevel level, BlockPos p, BlockState st) {
+        if (st.isAir() || st.canBeReplaced()) return true;
+        // Đuốc, hoa, nến... không có va chạm: không vướng việc xây (xây xong vẫn để nguyên).
+        if (st.getCollisionShape(level, p).isEmpty() && !st.is(net.minecraft.world.level.block.Blocks.COBWEB)) return true;
+        if (st.is(BlockTags.SUBSTRATE_OVERWORLD) || st.is(BlockTags.MINEABLE_WITH_SHOVEL) || st.is(BlockTags.BASE_STONE_OVERWORLD) || st.is(BlockTags.SAND) || st.is(BlockTags.FLOWERS)
+                || st.is(BlockTags.SAPLINGS) || st.is(net.minecraft.world.level.block.Blocks.GRAVEL) || st.is(BlockTags.SNOW)
+                || st.is(net.minecraft.tags.BlockItemTags.COAL_ORES.block()) || st.is(BlockTags.IRON_ORES) || st.is(BlockTags.COPPER_ORES)
+                || st.is(net.minecraft.world.level.block.Blocks.CLAY) || st.is(net.minecraft.world.level.block.Blocks.SWEET_BERRY_BUSH)
+                || st.is(net.minecraft.world.level.block.Blocks.PUMPKIN) || st.is(net.minecraft.world.level.block.Blocks.MELON)
+                || st.is(BlockTags.BEEHIVES)) return true;
+        if (st.is(BlockTags.LEAVES)) return !st.hasProperty(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)
+                || !st.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT);
+        if (st.is(BlockTags.LOGS)) {
+            // Cây thật: có lá tự nhiên quanh ngọn.
+            for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, 0, -2), p.offset(2, 6, 2))) {
+                BlockState s = level.getBlockState(q);
+                if (s.is(BlockTags.LEAVES) && s.hasProperty(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)
+                        && !s.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)) return true;
+            }
+            return false;
+        }
+        return false;
     }
 
     private static int groundBelowTree(ServerLevel level, BlockPos log) {

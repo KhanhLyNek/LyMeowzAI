@@ -342,7 +342,10 @@ public final class SurvivalTest {
         for (BlockPos p : BlockPos.betweenClosed(center.offset(-40, -3, -40), center.offset(40, 6, 40))) {
             BlockState st = ow.getBlockState(p);
             boolean mine = ly != null && (ly.ownsBlock(p) || p.equals(table)); // trong nhà / bàn đang dùng ở chỗ làm việc
-            if ((st.is(Blocks.CRAFTING_TABLE) || st.is(Blocks.FURNACE)) && !mine) litter++;
+            if ((st.is(Blocks.CRAFTING_TABLE) || st.is(Blocks.FURNACE)) && !mine) {
+                litter++;
+                log("  (bỏ lại: " + st.getBlock() + " ở " + p.toShortString() + ", cách cô ấy " + (int) Math.sqrt(p.distSqr(ly.blockPosition())) + ")");
+            }
         }
         int campLeft = ly == null || ly.data() == null ? 0 : ly.data().campBlocks.size();
         int cows = ow.getEntitiesOfClass(Cow.class, new net.minecraft.world.phys.AABB(center).inflate(40)).size();

@@ -194,7 +194,7 @@ public class Survival {
         if (!Set.of("nhặt đồ", "ăn", "chạy trốn").contains(t.name())) ly.thinker.outcome(t.name(), ok, ly.mind().data().joy - joyAtStart);
         // Thất bại thì để việc đó nghỉ một lúc (15 giây, 30 giây, 1 phút... tối đa 5 phút), đừng thử đi thử lại liên tục
         // như cái máy (vd. hết cỏ để lấy hạt mà cứ đòi làm ruộng).
-        if (!ok && !Set.of("nghỉ", "nhặt đồ", "ăn", "thư giãn", "chạy trốn").contains(t.name())) {
+        if (!ok && !Set.of("nghỉ", "nhặt đồ", "ăn", "thư giãn", "chạy trốn", "khám phá").contains(t.name())) {
             int streak = failStreak.merge(t.name(), 1, Integer::sum);
             failUntil.put(t.name(), level.getGameTime() + Math.min(20L * 60 * 5, 20L * 15 << Math.min(5, streak - 1)));
         } else if (ok) { failStreak.remove(t.name()); failUntil.remove(t.name()); }

@@ -92,7 +92,7 @@ public class ChopTreeTask extends Task {
 
     /** Trồng lại cây con ở gốc cũ nếu có cây con trong túi. */
     private void replant(ServerLevel level) {
-        if (!level.getBlockState(base).isAir() || !level.getBlockState(base.below()).is(BlockTags.DIRT)) return;
+        if (!level.getBlockState(base).isAir() || !level.getBlockState(base.below()).is(BlockTags.SUBSTRATE_OVERWORLD)) return;
         ItemStack sapling = ly.inv().takeOne(s -> s.is(ItemTags.SAPLINGS));
         if (sapling.isEmpty()) return;
         if (sapling.getItem() instanceof BlockItem bi) {
@@ -117,7 +117,7 @@ public class ChopTreeTask extends Task {
                 st -> st.is(BlockTags.LOGS), (m, st) -> {
                     BlockState below = level.getBlockState(m.below());
                     // gốc cây: bên dưới không phải gỗ mà là đất
-                    if (!below.is(BlockTags.LOGS) && below.is(BlockTags.DIRT) && !blacklist.contains(m)) candidates.add(m.immutable());
+                    if (!below.is(BlockTags.LOGS) && below.is(BlockTags.SUBSTRATE_OVERWORLD) && !blacklist.contains(m)) candidates.add(m.immutable());
                     return true;
                 });
         candidates.sort(Comparator.comparingDouble(p -> p.distSqr(feet)));

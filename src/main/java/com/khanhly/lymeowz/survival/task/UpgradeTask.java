@@ -97,7 +97,7 @@ public class UpgradeTask extends Task {
                 for (int x = 0; x < HouseTask.SIZE; x++) {
                     if (x == 2) continue; // lối đi trước cửa
                     BlockPos p = house.offset(x, 0, -2);
-                    if (level.getBlockState(p.below()).is(BlockTags.DIRT)) builder.add(p, Compat::isFlower,
+                    if (level.getBlockState(p.below()).is(BlockTags.SUBSTRATE_OVERWORLD)) builder.add(p, Compat::isFlower,
                             s -> s.getItem() instanceof BlockItem bi ? bi.getBlock().defaultBlockState() : null);
                 }
             }
